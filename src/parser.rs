@@ -2,113 +2,118 @@ use std::iter::Peekable;
 
 use crate::token::{Token, TokenType};
 
+struct Parser<'a, I>
+where
+    I: Iterator<Item = (usize, char)>
+{
+    code: &'a str,
+    chars: Peekable<I>,
+    line: usize,
+}
+
+impl<'a, I> Parser<'a, I>
+where
+    I: Iterator<Item = (usize, char)>,
+{
+    fn new(code: &'a str, chars: I) -> Self {
+        Parser {
+            code,
+            chars: chars.peekable(),
+            line: 1,
+        }
+    }
+}
+
 pub fn parse(code: &str) -> Vec<Token> {
-    let mut chars = code.chars().enumerate().peekable();
     let mut tokens: Vec<Token> = Vec::new();
-    let mut line: usize = 1;
+    let mut parser = Parser::new(code, code.chars().enumerate());
     
-    while let Some((i, c)) = chars.next() {
+    while let Some((i, c)) = parser.chars.next() {
         let t = match c {
-            '(' => Some(Token {
-                token_type: TokenType::LeftParen,
-                content: &code[i..i+1],
-                line,
-            }),
-            ')' => Some(Token {
-                token_type: TokenType::RightParen,
-                content: &code[i..i+1],
-                line,
-            }),
-            'a'..='z' | 'A'..='Z' | '_' => parse_atom(&mut chars, code, i, line),
-            '0'..='9' => parse_number(&mut chars, code, i, line),
-            '"' => parse_string(&mut chars, code, i, line),
+            '(' => Token::new(TokenType::LeftParen, &code[i..i+1], parser.line),
+            ')' => Token::new(TokenType::RightParen, &code[i..i+1], parser.line),
+            'a'..='z' | 'A'..='Z' | '_' => parse_atom(&mut parser, i),
+            '0'..='9' => parse_number(&mut parser, i),
+            '"' => parse_string(&mut parser, i),
             '\n' => {
-                line += 1;
-                None
+                parser.line += 1;
+                continue;
             }
-            _ => None
+            _ => {
+                continue;
+            }
         };
 
-        if let Some(t) = t {
-            tokens.push(t);
-        }
+        tokens.push(t);
     }
 
     tokens
 }
 
-fn parse_atom<'a, I: Iterator<Item = (usize, char)>>(chars: &mut Peekable<I>, code: &'a str, start: usize, line: usize) -> Option<Token<'a>> {
-    while let Some(&(j, c)) = chars.peek() {
-        match c {
-            'a'..='z' | 'A'..='Z' | '_' | '0'..='9' => {
-                chars.next();
-            }
-            _ => {
-                return Some(Token {
-                    token_type: TokenType::Atom,
-                    content: &code[start..j],
-                    line,
-                });
-            }
+fn parse_atom<'a, I>(parser: &mut Parser<'a, I>, start: usize) -> Token<'a>
+where
+    I: Iterator<Item = (usize, char)>
+{
+    let mut end = 0;
+
+    while let Some(&(j, c)) = parser.chars.peek() {
+        if c.is_ascii_alphanumeric() || c == '_' {
+            parser.chars.next();
+        } else {
+            end = j;
+            break;
         }
     }
 
-    None
+    Token::new(TokenType::Atom, &parser.code[start..end], parser.line)
 }
 
-fn parse_number<'a, I: Iterator<Item = (usize, char)>>(chars: &mut Peekable<I>, code: &'a str, start: usize, line: usize) -> Option<Token<'a>> {
+fn parse_number<'a, I>(parser: &mut Parser<'a, I>, start: usize) -> Token<'a>
+where
+    I: Iterator<Item = (usize, char)>
+{
     let mut end = 0;
     let mut num_type = TokenType::Int;
 
-    while let Some(&(j, c)) = chars.peek() {
-        match c {
-            '0'..='9' => {
-                chars.next();
-            }
-            _ => {
-                end = j;
-                break;
-            }
+    while let Some(&(j, c)) = parser.chars.peek() {
+        if c.is_ascii_digit() {
+            parser.chars.next();
+        } else {
+            end = j;
+            break;
         }
     }
 
-    if let Some(&(_, c)) = chars.peek() {
+    if let Some(&(_, c)) = parser.chars.peek() {
         if c == '.' {
-            chars.next();
+            parser.chars.next();
             num_type = TokenType::Float;
 
-            while let Some(&(j, c)) = chars.peek() {
-                match c {
-                    '0'..='9' => {
-                        chars.next();
-                    }
-                    _ => {
-                        end = j;
-                        break;
-                    }
+            while let Some(&(j, c)) = parser.chars.peek() {
+                if c.is_ascii_digit() {
+                    parser.chars.next();
+                } else {
+                    end = j;
+                    break;
                 }
             }
         }
     }
 
-    Some(Token {
-        token_type: num_type,
-        content: &code[start..end],
-        line,
-    })
+    Token::new(num_type, &parser.code[start..end], parser.line)
 }
 
-fn parse_string<'a, I: Iterator<Item = (usize, char)>>(chars: &mut Peekable<I>, code: &'a str, start: usize, line: usize) -> Option<Token<'a>> {
-    while let Some(&(j, c)) = chars.peek() {
-        chars.next();
-        if c == '"' {
-            return Some(Token {
-                token_type: TokenType::String,
-                content: &code[start+1..j],
-                line,
-            });
+fn parse_string<'a, I: Iterator<Item = (usize, char)>>(parser: &mut Parser<'a, I>, start: usize) -> Token<'a> {
+    while let Some(&(j, c)) = parser.chars.peek() {
+        parser.chars.next();
+        match c {
+            '"' => {
+                return Token::new(TokenType::String, &parser.code[start+1..j], parser.line);
+            }
+            '\n' => { break; }
+            _ => {}
         }
     }
 
-    None
+    panic!("String unterminated")
 }

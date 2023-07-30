@@ -29,6 +29,16 @@ pub struct Token<'a> {
     pub line: usize,
 }
 
+impl<'a> Token<'a> {
+    pub fn new(token_type: TokenType, content: &'a str, line: usize) -> Token<'a> {
+        Token {
+            token_type,
+            content,
+            line
+        }
+    }
+}
+
 pub fn debug_tokens(tokens: &Vec<Token>) {
     let mut line = 0;
 
