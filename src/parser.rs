@@ -1,6 +1,6 @@
 use std::iter::Peekable;
-use crate::token::Token;
-use crate::token::TokenType;
+
+use crate::token::{Token, TokenType};
 
 pub fn parse(code: &str) -> Vec<Token> {
     let mut chars = code.chars().enumerate().peekable();
