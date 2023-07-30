@@ -1,5 +1,5 @@
 mod token;
-mod parser;
+mod scanner;
 
 use std::env;
 use std::fs;
@@ -36,7 +36,7 @@ fn run_file(path: &str) {
 }
 
 fn interpret(code: &str) {
-    let tokens: Vec<Token> = parser::parse(code);
+    let tokens: Vec<Token> = scanner::scan(code);
     token::debug_tokens(&tokens);
     println!();
 }
