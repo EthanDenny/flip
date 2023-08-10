@@ -32,7 +32,8 @@ pub fn scan(code: &str) -> Vec<Token> {
         let t = match c {
             '(' => Token::new(TokenType::LeftParen, &code[i..i+1], scanner.line),
             ')' => Token::new(TokenType::RightParen, &code[i..i+1], scanner.line),
-            'a'..='z' | 'A'..='Z' | '_' => scan_atom(&mut scanner, i),
+            '\'' => scan_literal(&mut scanner, i),
+            'a'..='z' | 'A'..='Z' | '-' => scan_atom(&mut scanner, i),
             '0'..='9' => scan_number(&mut scanner, i),
             '"' => scan_string(&mut scanner, i),
             '\n' => {
@@ -50,20 +51,37 @@ pub fn scan(code: &str) -> Vec<Token> {
     tokens
 }
 
+fn find_atom_end<I>(scanner: &mut Scanner<I>) -> usize
+where
+    I: Iterator<Item = (usize, char)>
+{
+    while let Some(&(j, c)) = scanner.chars.peek() {
+        if c.is_ascii_alphanumeric() || c == '-' {
+            scanner.chars.next();
+        } else {
+            return j;
+        }
+    }
+
+    0
+}
+
+fn scan_literal<'a, I>(scanner: &mut Scanner<'a, I>, start: usize) -> Token<'a>
+where
+    I: Iterator<Item = (usize, char)>
+{
+    scanner.chars.next();
+
+    let end = find_atom_end(scanner);
+
+    Token::new(TokenType::Literal, &scanner.code[start + 1..end], scanner.line)
+}
+
 fn scan_atom<'a, I>(scanner: &mut Scanner<'a, I>, start: usize) -> Token<'a>
 where
     I: Iterator<Item = (usize, char)>
 {
-    let mut end = 0;
-
-    while let Some(&(j, c)) = scanner.chars.peek() {
-        if c.is_ascii_alphanumeric() || c == '_' {
-            scanner.chars.next();
-        } else {
-            end = j;
-            break;
-        }
-    }
+    let end = find_atom_end(scanner);
 
     Token::new(TokenType::Atom, &scanner.code[start..end], scanner.line)
 }
@@ -106,12 +124,8 @@ where
 fn scan_string<'a, I: Iterator<Item = (usize, char)>>(scanner: &mut Scanner<'a, I>, start: usize) -> Token<'a> {
     while let Some(&(j, c)) = scanner.chars.peek() {
         scanner.chars.next();
-        match c {
-            '"' => {
-                return Token::new(TokenType::String, &scanner.code[start+1..j], scanner.line);
-            }
-            '\n' => { break; }
-            _ => {}
+        if c == '"' {
+            return Token::new(TokenType::String, &scanner.code[start+1..j], scanner.line);
         }
     }
 

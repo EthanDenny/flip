@@ -4,6 +4,7 @@ use std::fmt;
 pub enum TokenType {
     LeftParen,
     RightParen,
+    Literal,
     Atom,
     Int,
     Float,
@@ -15,6 +16,7 @@ impl fmt::Display for TokenType {
         match self {
             TokenType::LeftParen => write!(f, "("),
             TokenType::RightParen => write!(f, ")"),
+            TokenType::Literal => write!(f, "Literal"),
             TokenType::Atom => write!(f, "Atom"),
             TokenType::Int => write!(f, "Int"),
             TokenType::Float => write!(f, "Float"),
@@ -52,7 +54,7 @@ pub fn debug_tokens(tokens: &Vec<Token>) {
         }
 
         match t.token_type {
-            TokenType::LeftParen | TokenType::RightParen => print!("{} ", t.content),
+            TokenType::LeftParen | TokenType::RightParen => print!("{} ", t.token_type),
             _ => print!("{}[{}] ", t.token_type, t.content),
         }
     }
