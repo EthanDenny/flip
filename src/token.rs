@@ -25,6 +25,7 @@ impl fmt::Display for TokenType {
     }
 }
 
+#[derive(Debug)]
 pub struct Token<'a> {
     pub token_type: TokenType,
     pub content: &'a str,
@@ -41,6 +42,7 @@ impl<'a> Token<'a> {
     }
 }
 
+/*
 pub fn debug_tokens(tokens: &Vec<Token>) {
     let mut line = 0;
 
@@ -59,3 +61,4 @@ pub fn debug_tokens(tokens: &Vec<Token>) {
         }
     }
 }
+*/

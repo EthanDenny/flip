@@ -1,11 +1,12 @@
-mod token;
+mod interpreter;
 mod scanner;
+mod token;
 
 use std::env;
 use std::fs;
 use std::io::{self, Write};
 
-use crate::token::Token;
+use crate::interpreter::interpret;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -23,20 +24,13 @@ fn repl() {
     loop {
         print!("> ");
         io::stdout().flush().unwrap();
-        let mut line = String::new();
+        let mut line: String = String::new();
         io::stdin().read_line(&mut line).expect("Could not read line");
-        interpret(&line);
+        interpret(line);
     }
 }
 
-
-fn run_file(path: &str) {
+fn run_file(path: &String) {
     let source = fs::read_to_string(path).expect("Could not read file");
-    interpret(&source);
-}
-
-fn interpret(code: &str) {
-    let tokens: Vec<Token> = scanner::scan(code);
-    token::debug_tokens(&tokens);
-    println!();
+    interpret(source);
 }
