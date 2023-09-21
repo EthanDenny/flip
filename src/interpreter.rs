@@ -16,7 +16,7 @@ enum ASTNode<'a> {
     String(&'a str),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 enum ParseNode<'a> {
     Root,
     List,
@@ -27,6 +27,7 @@ enum ParseNode<'a> {
     Int(i32),
     Float(f64),
     String(&'a str),
+    Temp(usize),
 }
 
 fn add_ast_children<'a>(
@@ -133,12 +134,65 @@ fn build_parse_tree(ast: Tree<ASTNode>) -> Tree<ParseNode> {
     tree
 }
 
+fn deconstruct_node<'a>(node: NodeRef<'a, ParseNode>, i: &mut usize) -> ParseNode<'a> {
+    match node.data() {
+        ParseNode::Function(name) => {
+            let mut args: Vec<ParseNode> = Vec::new();
+
+            for c in node.children() {
+                let n = deconstruct_node(c, i);
+
+                match n {
+                    ParseNode::Function(_) => {
+                        args.push(ParseNode::Temp(*i));
+                    }
+                    _ => {
+                        args.push(n);
+                    }
+                }
+            }
+
+            *i += 1;
+
+            print!("t{i} := function {:?} with args => ", name);
+
+            for a in args {
+                print!("{:?} ", a);
+            }
+
+            println!();
+
+            *node.data()
+        }
+        ParseNode::String(content) => {
+            *i += 1;
+
+            println!("t{i} := string   \"{}\"", content);
+
+            ParseNode::Temp(*i)
+        }
+        _ => {
+            *node.data()
+        }
+    }
+}
+
 pub fn interpret(code: String) {
     let tokens: Vec<Token> = scan(&code);
     let ast: Tree<ASTNode> = build_ast(&tokens);
     let parse_tree: Tree<ParseNode> = build_parse_tree(ast);
+
+    let mut i = 0;
+
+    if let Some(root) = parse_tree.root() {
+        for c in root.children() {
+            deconstruct_node(c, &mut i);
+        }
+    }
     
+    /*
     let mut s = String::new();
     parse_tree.write_formatted(&mut s).unwrap();
     print!("{s}");
+     */
 }
