@@ -41,24 +41,3 @@ impl<'a> Token<'a> {
         }
     }
 }
-
-/*
-pub fn debug_tokens(tokens: &Vec<Token>) {
-    let mut line = 0;
-
-    for t in tokens {
-        while t.line > line {
-            line += 1;
-            if line > 1 {
-                println!();
-            }
-            print!("{line:<4}: ");
-        }
-
-        match t.token_type {
-            TokenType::LeftParen | TokenType::RightParen => print!("{} ", t.token_type),
-            _ => print!("{}[{}] ", t.token_type, t.content),
-        }
-    }
-}
-*/
