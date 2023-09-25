@@ -188,7 +188,7 @@ fn write(f: &mut File, data: &str) {
     f.write_all(data.as_bytes()).expect("Unable to write data");
 }
 
-pub fn interpret(mut path: PathBuf, code: String) {
+pub fn compile(mut path: PathBuf, code: String) {
     // Create file buffer
 
     path.set_extension("rs");
