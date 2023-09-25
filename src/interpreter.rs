@@ -1,4 +1,7 @@
+use std::fs::{self, File};
+use std::io::Write;
 use std::slice::Iter;
+use std::path::PathBuf;
 
 use slab_tree::*;
 
@@ -134,13 +137,13 @@ fn build_parse_tree(ast: Tree<ASTNode>) -> Tree<ParseNode> {
     tree
 }
 
-fn deconstruct_node<'a>(node: NodeRef<'a, ParseNode>, i: &mut usize) -> ParseNode<'a> {
+fn deconstruct_node<'a>(f: &mut File, node: NodeRef<'a, ParseNode>, i: &mut usize) -> ParseNode<'a> {
     match node.data() {
         ParseNode::Function(name) => {
             let mut args: Vec<ParseNode> = Vec::new();
 
             for c in node.children() {
-                let n = deconstruct_node(c, i);
+                let n = deconstruct_node(f, c, i);
 
                 match n {
                     ParseNode::Function(_) => {
@@ -154,22 +157,26 @@ fn deconstruct_node<'a>(node: NodeRef<'a, ParseNode>, i: &mut usize) -> ParseNod
 
             *i += 1;
 
-            print!("t{i} := function {:?} with args => ", name);
+            write(f, &format!("    let t{i} = flip.call_fn(\"{name}\", vec!["));
 
-            for a in args {
-                print!("{:?} ", a);
+            let mut args_iter = args.iter().peekable();
+
+            while let Some(a) = args_iter.next() {
+                match a {
+                    ParseNode::Atom(name) => write(f, &format!("FlipType::Atom(\"{name}\")")),
+                    ParseNode::Int(v) => write(f, &format!("FlipType::Int({v})")),
+                    ParseNode::Temp(n) => write(f, &format!("t{n}")),
+                    ParseNode::String(v) => write(f, &format!("FlipType::String(\"{v}\")")),
+                    _ => write(f, &format!("{:?}", a)),
+                }
+                if args_iter.peek().is_some() {
+                    write(f, ", ");
+                }
             }
 
-            println!();
+            write(f, "]);\n");
 
             *node.data()
-        }
-        ParseNode::String(content) => {
-            *i += 1;
-
-            println!("t{i} := string   \"{}\"", content);
-
-            ParseNode::Temp(*i)
         }
         _ => {
             *node.data()
@@ -177,7 +184,31 @@ fn deconstruct_node<'a>(node: NodeRef<'a, ParseNode>, i: &mut usize) -> ParseNod
     }
 }
 
-pub fn interpret(code: String) {
+fn write(f: &mut File, data: &str) {
+    f.write_all(data.as_bytes()).expect("Unable to write data");
+}
+
+pub fn interpret(mut path: PathBuf, code: String) {
+    // Create file buffer
+
+    path.set_extension("rs");
+    
+    let f = &mut File::create(path).expect("Unable to create file");
+
+    // Write the core Flip functions
+
+    let flip = fs::read_to_string("src/flip.rs").expect("Could not read flip.rs");
+
+    write(f, &flip);
+
+    // Main declaration before the actual code
+
+    write(f, "\n#[allow(unused_variables)]\n");
+    write(f, "fn main() {\n");
+    write(f, "    let mut flip = Flip::new();\n\n");
+
+    // Convert AST into Rust
+
     let tokens: Vec<Token> = scan(&code);
     let ast: Tree<ASTNode> = build_ast(&tokens);
     let parse_tree: Tree<ParseNode> = build_parse_tree(ast);
@@ -186,13 +217,11 @@ pub fn interpret(code: String) {
 
     if let Some(root) = parse_tree.root() {
         for c in root.children() {
-            deconstruct_node(c, &mut i);
+            deconstruct_node(f, c, &mut i);
         }
     }
-    
-    /*
-    let mut s = String::new();
-    parse_tree.write_formatted(&mut s).unwrap();
-    print!("{s}");
-     */
+
+    // Closing brace
+
+    write(f, "}\n");
 }
