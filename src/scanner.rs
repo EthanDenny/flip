@@ -29,23 +29,23 @@ pub fn scan(code: &str) -> Vec<Token> {
     let mut scanner = Scanner::new(code, code.chars().enumerate());
     
     while let Some((i, c)) = scanner.chars.next() {
-        let t = match c {
-            '(' => Token::new(TokenType::LeftParen, &code[i..i+1], scanner.line),
-            ')' => Token::new(TokenType::RightParen, &code[i..i+1], scanner.line),
-            '\'' => scan_literal(&mut scanner, i),
-            'a'..='z' | 'A'..='Z' | '-' => scan_atom(&mut scanner, i),
-            '0'..='9' => scan_number(&mut scanner, i),
-            '"' => scan_string(&mut scanner, i),
-            '\n' => {
-                scanner.line += 1;
-                continue;
+        tokens.push(
+            match c {
+                '(' => Token::new(TokenType::LeftParen, &code[i..i+1], scanner.line),
+                ')' => Token::new(TokenType::RightParen, &code[i..i+1], scanner.line),
+                '\'' => scan_literal(&mut scanner, i),
+                '0'..='9' => scan_number(&mut scanner, i),
+                '"' => scan_string(&mut scanner, i),
+                '\n' => {
+                    scanner.line += 1;
+                    continue;
+                },
+                ' ' | '\t' => {
+                    continue;
+                },
+                _ => scan_atom(&mut scanner, i)
             }
-            _ => {
-                continue;
-            }
-        };
-
-        tokens.push(t);
+        );
     }
 
     tokens
