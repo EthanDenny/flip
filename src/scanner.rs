@@ -36,7 +36,7 @@ pub fn scan(code: &str) -> Vec<Token> {
                 '\'' => scan_literal(&mut scanner, i),
                 '0'..='9' => scan_number(&mut scanner, i),
                 '"' => scan_string(&mut scanner, i),
-                '\n' => {
+                '\n' | '\r' => {
                     scanner.line += 1;
                     continue;
                 },
