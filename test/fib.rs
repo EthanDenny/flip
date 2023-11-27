@@ -311,3 +311,26 @@ macro_rules! list {
         list
     }}
 }
+
+#[allow(unused_variables)]
+fn main() {
+    interpret(&[
+        list!(FlipType::Atom("fn"), FlipType::Atom("fib"), list!(FlipType::Atom("n"), FlipType::Ignore), list!(list!(FlipType::Atom("if"), list!(FlipType::Atom("<="), FlipType::Atom("n"), FlipType::Int(1), FlipType::Ignore), FlipType::Atom("n"), list!(FlipType::Atom("+"), list!(FlipType::Atom("fib"), list!(FlipType::Atom("-"), FlipType::Atom("n"), FlipType::Int(1), FlipType::Ignore), FlipType::Ignore), list!(FlipType::Atom("fib"), list!(FlipType::Atom("-"), FlipType::Atom("n"), FlipType::Int(2), FlipType::Ignore), FlipType::Ignore), FlipType::Ignore), FlipType::Ignore), FlipType::Ignore), FlipType::Ignore), 
+        list!(FlipType::Atom("fn"), FlipType::Atom("test"), list!(FlipType::Atom("n"), FlipType::Ignore), list!(list!(FlipType::Atom("fib"), FlipType::Atom("n"), FlipType::Ignore), FlipType::Ignore), FlipType::Ignore), 
+        list!(FlipType::Atom("fn"), FlipType::Atom("eval"), list!(FlipType::Atom("f"), FlipType::Atom("args"), FlipType::Ignore), list!(FlipType::Atom("f"), FlipType::Atom("args"), FlipType::Ignore), FlipType::Ignore), 
+        list!(FlipType::Atom("print"), list!(FlipType::Atom("fib"), FlipType::Int(1), FlipType::Ignore), FlipType::Ignore), 
+        list!(FlipType::Atom("print"), list!(FlipType::Atom("fib"), FlipType::Int(2), FlipType::Ignore), FlipType::Ignore), 
+        list!(FlipType::Atom("print"), list!(FlipType::Atom("fib"), FlipType::Int(3), FlipType::Ignore), FlipType::Ignore), 
+        list!(FlipType::Atom("print"), list!(FlipType::Atom("fib"), FlipType::Int(4), FlipType::Ignore), FlipType::Ignore), 
+        list!(FlipType::Atom("print"), list!(FlipType::Atom("fib"), FlipType::Int(5), FlipType::Ignore), FlipType::Ignore), 
+        list!(FlipType::Atom("print"), list!(FlipType::Atom("fib"), FlipType::Int(6), FlipType::Ignore), FlipType::Ignore), 
+        list!(FlipType::Atom("print"), list!(FlipType::Atom("fib"), FlipType::Int(7), FlipType::Ignore), FlipType::Ignore), 
+        list!(FlipType::Atom("print"), list!(FlipType::Atom("fib"), FlipType::Int(8), FlipType::Ignore), FlipType::Ignore), 
+        list!(FlipType::Atom("print"), list!(FlipType::Atom("fib"), FlipType::Int(9), FlipType::Ignore), FlipType::Ignore), 
+        list!(FlipType::Atom("print"), list!(FlipType::Atom("fib"), FlipType::Int(10), FlipType::Ignore), FlipType::Ignore), 
+        list!(FlipType::Atom("print"), list!(FlipType::Atom("fib"), FlipType::Int(11), FlipType::Ignore), FlipType::Ignore), 
+        list!(FlipType::Atom("print"), list!(FlipType::Atom("fib"), FlipType::Int(12), FlipType::Ignore), FlipType::Ignore), 
+        list!(FlipType::Atom("print"), list!(FlipType::Atom("test"), FlipType::Int(13), FlipType::Ignore), FlipType::Ignore), 
+        list!(FlipType::Atom("print"), list!(FlipType::Atom("eval"), list!(FlipType::Atom("fn"), FlipType::Atom("test"), list!(FlipType::Atom("n"), FlipType::Ignore), list!(list!(FlipType::Atom("fib"), FlipType::Atom("n"), FlipType::Ignore), FlipType::Ignore), FlipType::Ignore), FlipType::Int(14), FlipType::Ignore), FlipType::Ignore), 
+    ])
+}

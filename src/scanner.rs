@@ -56,10 +56,9 @@ where
     I: Iterator<Item = (usize, char)>
 {
     while let Some(&(j, c)) = scanner.chars.peek() {
-        if c.is_ascii_alphanumeric() || c == '-' {
-            scanner.chars.next();
-        } else {
-            return j;
+        match c {
+            '(' | ')' | '\'' | '0'..='9' | '"' | '\n' | '\r' | ' ' | '\t' => { return j; }
+            _ => { scanner.chars.next(); }
         }
     }
 
