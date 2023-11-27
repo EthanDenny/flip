@@ -144,8 +144,7 @@ pub fn compile(mut path: PathBuf, code: String) {
 
     // Main declaration before the actual code
 
-    write(f, "\n#[allow(unused_variables)]\n");
-    write(f, "fn main() {\n");
+    write(f, "\nfn main() {\n");
     write(f, "    interpret(&[");
 
     // Convert AST into Rust

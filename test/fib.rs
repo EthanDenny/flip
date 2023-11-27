@@ -312,7 +312,6 @@ macro_rules! list {
     }}
 }
 
-#[allow(unused_variables)]
 fn main() {
     interpret(&[
         list!(FlipType::Atom("fn"), FlipType::Atom("fib"), list!(FlipType::Atom("n"), FlipType::Ignore), list!(list!(FlipType::Atom("if"), list!(FlipType::Atom("<="), FlipType::Atom("n"), FlipType::Int(1), FlipType::Ignore), FlipType::Atom("n"), list!(FlipType::Atom("+"), list!(FlipType::Atom("fib"), list!(FlipType::Atom("-"), FlipType::Atom("n"), FlipType::Int(1), FlipType::Ignore), FlipType::Ignore), list!(FlipType::Atom("fib"), list!(FlipType::Atom("-"), FlipType::Atom("n"), FlipType::Int(2), FlipType::Ignore), FlipType::Ignore), FlipType::Ignore), FlipType::Ignore), FlipType::Ignore), FlipType::Ignore), 
