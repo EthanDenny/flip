@@ -94,3 +94,13 @@ pub enum T<'a> {
     Bool,
     Generic(&'a str)
 }
+
+impl<'a> fmt::Display for T<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            T::Int => write!(f, "Int"),
+            T::Bool => write!(f, "Bool"),
+            T::Generic(generic_name) => write!(f, "Generic({generic_name})"),
+        }
+    }
+}

@@ -42,9 +42,7 @@ fn compare_types<'a>(args: &Vec<ASTNode>, goal_types: &[T]) -> bool {
             } else {
                 generics_map.insert(generic_name, arg_type);
             }
-        }
-        
-        if arg_type != goal_type {
+        } else if arg_type != goal_type {
             return false;
         }
     }
