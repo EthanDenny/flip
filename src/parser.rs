@@ -27,7 +27,7 @@ where
     if let Some(arg_or_paren) = tokens.peek() {
         if arg_or_paren.token_type == TokenType::RightParen {
             consume(tokens);
-            return ASTNode::Call(name, Vec::new());
+            ASTNode::Call(name, Vec::new())
         } else {
             let mut args = vec![get_arg(tokens)];
 
