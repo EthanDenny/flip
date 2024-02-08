@@ -75,6 +75,10 @@ fn get_inline_fn_body<'a>(name: &String, args: &Vec<ASTNode>, symbols: &mut Symb
                     buf.emit_instr(&format!("movl %eax, -4(%rsp)"));
                     compile_expr(buf, &args[0], symbols);
                     buf.emit_instr(&format!("addl -4(%rsp), %eax"));
+                },
+                [ASTNode::Var(_), ASTNode::Int(v)] | 
+                [ASTNode::Int(v), ASTNode::Var(_)] => {
+                    buf.emit_instr(&format!("addl ${v}, %eax"));
                 }
                 _ => throw("Incorrect types")
             }
@@ -97,6 +101,10 @@ fn get_inline_fn_body<'a>(name: &String, args: &Vec<ASTNode>, symbols: &mut Symb
                     buf.emit_instr(&format!("movl %eax, -4(%rsp)"));
                     compile_expr(buf, &args[0], symbols);
                     buf.emit_instr(&format!("subl -4(%rsp), %eax"));
+                },
+                [ASTNode::Var(_), ASTNode::Int(v)] | 
+                [ASTNode::Int(v), ASTNode::Var(_)] => {
+                    buf.emit_instr(&format!("subl ${v}, %eax"));
                 }
                 _ => throw("Incorrect types")
             }

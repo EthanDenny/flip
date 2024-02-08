@@ -40,13 +40,34 @@ where
 
     expect(tokens, TokenType::RightParen);
 
+    // No guaruntee this is actually what is returned by the function,
+    // currently, the programmer must be trusted
+    let return_type = consume_return(tokens);
+
     let mut scoped_symbols = symbols.clone();
     scoped_symbols.insert_vec(&args);
 
     let body = consume_body(tokens, &mut scoped_symbols);
 
-    symbols.insert(Symbol::new_fn(&name_token.content, arg_types, T::Bool));
-    ASTNode::Fn(name, args, T::Bool, body)
+    symbols.insert(Symbol::new_fn(&name_token.content, arg_types, return_type.clone()));
+    ASTNode::Fn(name, args, return_type, body)
+}
+
+fn consume_return<'a, I>(tokens: &mut Peekable<I>) -> T
+where
+    I: Iterator<Item = Token>
+{
+    if let Some(token) = tokens.peek() {
+        if token.token_type == TokenType::Arrow {
+            consume(tokens);
+            let type_name = expect(tokens, TokenType::Literal).content;
+            parse_type(type_name)
+        } else {
+            T::None
+        }
+    } else {
+        throw("Expected return type or block, got end")
+    }
 }
 
 fn consume_args<'a, I>(tokens: &mut Peekable<I>) -> Vec<Symbol>
@@ -79,6 +100,7 @@ fn parse_type(type_name: String) -> T {
         "Int" => T::Int,
         "Bool" => T::Bool,
         "Fn" => T::Fn,
+        "None" => T::None,
         _ => T::Generic(type_name)
     }
 }
@@ -109,8 +131,8 @@ where
 {
     let left_paren = expect(tokens, TokenType::LeftParen);
 
-    if let Some(arg_or_paren) = tokens.peek() {
-        if arg_or_paren.token_type == TokenType::RightParen {
+    if let Some(token) = tokens.peek() {
+        if token.token_type == TokenType::RightParen {
             consume(tokens);
             ASTNode::Call(name, Vec::new())
         } else {

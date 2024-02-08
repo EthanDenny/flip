@@ -117,6 +117,7 @@ pub enum T {
     Int,
     Bool,
     Fn,
+    None,
     Generic(String)
 }
 
@@ -126,6 +127,7 @@ impl fmt::Display for T {
             T::Int => write!(f, "Int"),
             T::Bool => write!(f, "Bool"),
             T::Fn => write!(f, "Fn"),
+            T::None => write!(f, "None"),
             T::Generic(generic_name) => write!(f, "Generic({generic_name})"),
         }
     }
