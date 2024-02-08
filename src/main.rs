@@ -32,6 +32,7 @@ fn compile(code: String) -> std::io::Result<()>  {
     let mut buf = Buffer::new();
     let mut symbols = SymbolTable::new(vec![
         Symbol::new_fn("if", vec![T::Bool, T::gen("T"), T::gen("T")], T::gen("T")),
+        Symbol::new_fn("if_else", vec![T::Bool, T::gen("T")], T::gen("T")),
         Symbol::new_fn("+", vec![T::Int, T::Int], T::Int),
         Symbol::new_fn("-", vec![T::Int, T::Int], T::Int),
     ]);

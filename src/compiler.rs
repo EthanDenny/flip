@@ -109,7 +109,35 @@ fn get_inline_fn_body<'a>(name: &String, args: &Vec<ASTNode>, symbols: &mut Symb
                 _ => throw("Incorrect types")
             }
         }),
-        ("if", vec![T::Bool, T::gen("T"), T::gen("T")], T::gen("T"), &|buf, args, symbols| {
+        ("if", vec![T::Bool, T::gen("T")], T::gen("T"), &|buf, args, symbols| {
+            match &args[0] {
+                ASTNode::Bool(true) => {
+                    compile_expr(buf, &args[1], symbols);
+                }
+                ASTNode::Bool(false) => {
+                    // This will never be run, so compile nothing
+                }
+                ASTNode::Call(_, _) => {
+                    let resume = buf.get_label();
+
+                    compile_expr(buf, &args[0], symbols);
+                    buf.emit_instr(&format!("cmpl $0, %eax"));
+                    buf.emit_instr(&format!("je {resume}"));
+                    compile_expr(buf, &args[1], symbols);
+                    buf.emit(&format!("{resume}:\n"));
+                }
+                ASTNode::Var(_) => {
+                    let resume = buf.get_label();
+
+                    buf.emit_instr(&format!("cmpl $0, %eax"));
+                    buf.emit_instr(&format!("je {resume}"));
+                    compile_expr(buf, &args[1], symbols);
+                    buf.emit(&format!("{resume}:\n"));
+                }
+                _ => throw("Incorrect types")
+            }
+        }),
+        ("if_else", vec![T::Bool, T::gen("T"), T::gen("T")], T::gen("T"), &|buf, args, symbols| {
             match &args[0] {
                 ASTNode::Bool(true) => {
                     compile_expr(buf, &args[1], symbols);
