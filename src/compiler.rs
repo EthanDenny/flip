@@ -1,161 +1,150 @@
-use std::collections::HashMap;
-
+use crate::error::throw;
+use crate::symbols::SymbolTable;
 use crate::types::{ASTNode, Buffer, T};
 
-pub fn compile_expr(buf: &mut Buffer, node: &ASTNode) {
+type InlineFnBody<'a> = &'a (dyn Fn(&'a mut Buffer, Vec<ASTNode>, &'a mut SymbolTable) -> ());
+type InlineFn<'a> = (&'a str, Vec<T>, T, InlineFnBody<'a>);
+
+pub fn compile_expr<'a>(buf: &mut Buffer, node: &ASTNode, symbols: &mut SymbolTable) {
     match node {
-        ASTNode::Call(name, args) => {
-            let mut found_fn = false;
-            for (fn_name, arg_types, _, body) in FN_TABLE {
-                if &name == fn_name && compare_types(args, arg_types) {
-                    found_fn = true;
-                    body(buf, args);
-                    break;
-                }
+        ASTNode::Fn(name, _, _, body) => {
+            buf.emit(&format!("\n{}:\n", name));
+
+            buf.emit_instr("pushq %rbp");
+            buf.emit_instr("pushq %rsi");
+            buf.emit_instr("pushq %rdi");
+
+            for branch in body {
+                compile_expr(buf, &branch, symbols);
             }
-            if !found_fn { panic!("Unrecognized function: {name}") };
+
+            buf.emit_instr("popq %rdi");
+            buf.emit_instr("popq %rsi");
+            buf.emit_instr("popq %rbp");
+
+            buf.emit_instr("ret");
         }
+        ASTNode::Call(name, args) => {
+            if let Some(body) = get_inline_fn_body(name, args, symbols) {
+                body(buf, args.to_vec(), symbols);
+            } else if symbols.check_types(name, args) {
+                buf.emit_instr("pushq %rax");
+                buf.emit_instr("pushq %rcx");
+                buf.emit_instr("pushq %rdx");
+
+                compile_expr(buf, &args[0], symbols);
+                buf.emit_instr(&format!("call fn_{name}"));
+                buf.emit_instr("movl %eax, %ebp");
+
+                buf.emit_instr("popq %rdx");
+                buf.emit_instr("popq %rcx");
+                buf.emit_instr("popq %rax");
+
+                buf.emit_instr("movl %ebp, %eax");
+            } else {
+                panic!("Could not find function \"{name}\"");
+            }
+        }
+        ASTNode::Var(_) => {}
         ASTNode::Int(_) => {
-            buf.emit_instr(format!("movl ${}, %eax", immediate_repr(node)));
+            buf.emit_instr(&format!("movl ${}, %eax", node.imm_repr()));
         },
         ASTNode::Bool(_) => {
-            buf.emit_instr(format!("movb ${}, %al", immediate_repr(node)));
+            buf.emit_instr(&format!("movb ${}, %al", node.imm_repr()));
         }
     }
 }
 
-fn compare_types<'a>(args: &Vec<ASTNode>, goal_types: &[T]) -> bool {
-    if  args.len() != goal_types.len() {
-        return false;
-    }
-
-    let mut generics_map = HashMap::new();
-
-    for (arg, goal_type) in args.into_iter().zip(goal_types.into_iter()) {
-        let arg_type = get_type(arg);
-
-        if let T::Generic(generic_name) = goal_type {
-            if let Some(&type_from_generic) = generics_map.get(&generic_name) {
-                if arg_type != type_from_generic {
-                    return false;
+fn get_inline_fn_body<'a>(name: &String, args: &Vec<ASTNode>, symbols: &mut SymbolTable) -> Option<InlineFnBody<'a>> {
+    let inlines: Vec<InlineFn> = vec![
+        ("+", vec![T::Int, T::Int], T::Int, &|buf, args, symbols| {
+            match &args[..] {
+                [ASTNode::Int(v1), ASTNode::Int(v2)] => {
+                    buf.emit_instr(&format!("movl ${}, %eax", v1 + v2));
                 }
-            } else {
-                generics_map.insert(generic_name, arg_type);
-            }
-        } else if arg_type != goal_type {
-            return false;
-        }
-    }
-
-    true
-}
-
-fn get_type<'a>(arg: &ASTNode) -> &'a T<'a> {
-    match arg {
-        ASTNode::Call(name, fn_args) => {
-            for (fn_name, arg_types, return_type, _) in FN_TABLE {
-                if name == fn_name && compare_types(fn_args, arg_types) {
-                    return get_return_type(name, fn_args, return_type);
+                [ASTNode::Call(_, _), ASTNode::Int(v)] => {
+                    compile_expr(buf, &args[0], symbols);
+                    buf.emit_instr(&format!("addl ${v}, %eax"));
                 }
-            }
-            
-            panic!("Unrecognized function: {name}");
-        },
-        ASTNode::Int(_) => &T::Int,
-        ASTNode::Bool(_) => &T::Bool,
-    }
-}
-
-fn get_return_type<'a>(name: &String, args: &Vec<ASTNode>, return_type: &'a T<'a>) -> &'a T<'a> {
-    if let T::Generic(generic_name) = return_type {
-        for (fn_name, arg_types, _, _) in FN_TABLE {
-            if name == fn_name && compare_types(args, arg_types) {
-                for (arg_type, arg) in arg_types.iter().zip(args.iter()) {
-                    if return_type == arg_type {
-                        return get_type(arg);
-                    }
+                [ASTNode::Int(v), ASTNode::Call(_, _)] => {
+                    compile_expr(buf, &args[1], symbols);
+                    buf.emit_instr(&format!("addl ${v}, %eax"));
                 }
+                [ASTNode::Call(_, _), ASTNode::Call(_, _)] => {
+                    compile_expr(buf, &args[1], symbols);
+                    buf.emit_instr(&format!("movl %eax, -4(%rsp)"));
+                    compile_expr(buf, &args[0], symbols);
+                    buf.emit_instr(&format!("addl -4(%rsp), %eax"));
+                }
+                _ => throw("Incorrect types")
             }
-        }
+        }),
+        ("-", vec![T::Int, T::Int], T::Int, &|buf, args, symbols| {
+            match &args[..] {
+                [ASTNode::Int(v1), ASTNode::Int(v2)] => {
+                    buf.emit_instr(&format!("movl ${}, %eax", v1 - v2));
+                }
+                [ASTNode::Call(_, _), ASTNode::Int(v)] => {
+                    compile_expr(buf, &args[0], symbols);
+                    buf.emit_instr(&format!("subl ${v}, %eax"));
+                }
+                [ASTNode::Int(v), ASTNode::Call(_, _)] => {
+                    compile_expr(buf, &args[1], symbols);
+                    buf.emit_instr(&format!("subl ${v}, %eax"));
+                }
+                [ASTNode::Call(_, _), ASTNode::Call(_, _)] => {
+                    compile_expr(buf, &args[1], symbols);
+                    buf.emit_instr(&format!("movl %eax, -4(%rsp)"));
+                    compile_expr(buf, &args[0], symbols);
+                    buf.emit_instr(&format!("subl -4(%rsp), %eax"));
+                }
+                _ => throw("Incorrect types")
+            }
+        }),
+        ("if", vec![T::Bool, T::gen("T"), T::gen("T")], T::gen("T"), &|buf, args, symbols| {
+            match &args[0] {
+                ASTNode::Bool(true) => {
+                    compile_expr(buf, &args[1], symbols);
+                }
+                ASTNode::Bool(false) => {
+                    compile_expr(buf, &args[2], symbols);
+                }
+                ASTNode::Call(_, _) => {
+                    let if_branch = buf.get_label();
+                    let resume = buf.get_label();
 
-        panic!("Could not resolve generic {generic_name}");
-    } else {
-        return_type
+                    compile_expr(buf, &args[0], symbols);
+                    buf.emit_instr(&format!("cmpl $0, %eax"));
+                    buf.emit_instr(&format!("jne {if_branch}"));
+                    compile_expr(buf, &args[2], symbols);
+                    buf.emit_instr(&format!("jmp {resume}"));
+                    buf.emit(&format!("{if_branch}:\n"));
+                    compile_expr(buf, &args[1], symbols);
+                    buf.emit(&format!("{resume}:\n"));
+                }
+                ASTNode::Var(_) => {
+                    let if_branch = buf.get_label();
+                    let resume = buf.get_label();
+
+                    buf.emit_instr(&format!("cmpl $0, %eax"));
+                    buf.emit_instr(&format!("jne {if_branch}"));
+                    compile_expr(buf, &args[2], symbols);
+                    buf.emit_instr(&format!("jmp {resume}"));
+                    buf.emit(&format!("{if_branch}:\n"));
+                    compile_expr(buf, &args[1], symbols);
+                    buf.emit(&format!("{resume}:\n"));
+                }
+                _ => throw("Incorrect types")
+            }
+        })
+    ];
+
+    for f in inlines {
+        let (fn_name, arg_types, _, body) = f;
+        if name == fn_name && symbols.compare_types(&args, &arg_types) {
+            return Some(body);
+        }
     }
-}
 
-fn immediate_repr<'a>(node: &ASTNode) -> String {
-    match node {
-        ASTNode::Int(v) => format!("{v}"),
-        ASTNode::Bool(v) => if *v { String::from("1") } else { String::from("0") }
-        _ => String::new()
-    }
+    None
 }
-
-const FN_TABLE: &[(&str, &[T], T, &(dyn Fn(&mut Buffer, &Vec<ASTNode>) -> ()))] = &[
-    ("+", &[T::Int, T::Int], T::Int, &|buf, args| {
-        match &args[..] {
-            [ASTNode::Int(v1), ASTNode::Int(v2)] => {
-                buf.emit_instr(format!("movl ${}, %eax", v1 + v2));
-            }
-            [ASTNode::Call(_, _), ASTNode::Int(v)] => {
-                compile_expr(buf, &args[0]);
-                buf.emit_instr(format!("addl ${v}, %eax"));
-            }
-            [ASTNode::Int(v), ASTNode::Call(_, _)] => {
-                compile_expr(buf, &args[1]);
-                buf.emit_instr(format!("addl ${v}, %eax"));
-            }
-            [ASTNode::Call(_, _), ASTNode::Call(_, _)] => {
-                compile_expr(buf, &args[1]);
-                buf.emit_instr(format!("movl %eax, -4(%rsp)"));
-                compile_expr(buf, &args[0]);
-                buf.emit_instr(format!("addl -4(%rsp), %eax"));
-            }
-            _ => panic!("Incorrect types")
-        }
-    }),
-    ("-", &[T::Int, T::Int], T::Int, &|buf, args| {
-        match &args[..] {
-            [ASTNode::Int(v1), ASTNode::Int(v2)] => {
-                buf.emit_instr(format!("movl ${}, %eax", v1 - v2));
-            }
-            [ASTNode::Call(_, _), ASTNode::Int(v)] => {
-                compile_expr(buf, &args[0]);
-                buf.emit_instr(format!("subl ${v}, %eax"));
-            }
-            [ASTNode::Int(v), ASTNode::Call(_, _)] => {
-                compile_expr(buf, &args[1]);
-                buf.emit_instr(format!("subl ${v}, %eax"));
-            }
-            [ASTNode::Call(_, _), ASTNode::Call(_, _)] => {
-                compile_expr(buf, &args[1]);
-                buf.emit_instr(format!("movl %eax, -4(%rsp)"));
-                compile_expr(buf, &args[0]);
-                buf.emit_instr(format!("subl -4(%rsp), %eax"));
-            }
-            _ => panic!("Incorrect types")
-        }
-    }),
-    ("if", &[T::Bool, T::Generic("T"), T::Generic("T")], T::Generic("T"), &|buf, args| {
-        match &args[0] {
-            ASTNode::Bool(true) => {
-                compile_expr(buf, &args[1]);
-            }
-            ASTNode::Bool(false) => {
-                compile_expr(buf, &args[2]);
-            }
-            ASTNode::Call(_, _) => {
-                compile_expr(buf, &args[0]);
-                buf.emit_instr(format!("cmpl $0, %eax"));
-                buf.emit_instr(format!("jne if_branch"));
-                compile_expr(buf, &args[2]);
-                buf.emit_instr(format!("jmp resume"));
-                buf.emit("if_branch:\n");
-                compile_expr(buf, &args[1]);
-                buf.emit("resume:\n");
-            }
-            _ => panic!("Incorrect types")
-        }
-    })
-];

@@ -1,22 +1,36 @@
 use std::fmt;
 
-pub struct Buffer(String);
+use crate::symbols::Symbol;
+
+pub struct Buffer {
+    content: String,
+    label: i64
+}
 
 impl Buffer {
     pub fn new() -> Buffer {
-        Buffer(String::new())
+        Buffer {
+            content: String::new(),
+            label: 0
+        }
     }
 
     pub fn emit(&mut self, text: &str) {
-        self.0.push_str(text);
+        self.content.push_str(text);
     }
 
-    pub fn emit_instr(&mut self, text: String) {
-        self.emit(&format!("    {text}\n"));
+    pub fn emit_instr(&mut self, text: &str) {
+        self.content.push_str(&format!("    {text}\n"));
     }
 
     pub fn get<'a>(self) -> String {
-        self.0
+        self.content
+    }
+
+    pub fn get_label(&mut self) -> String {
+        let next_label = self.label;
+        self.label += 1;
+        format!(".L{next_label}")
     }
 }
 
@@ -29,17 +43,16 @@ pub enum TokenType {
     LeftBrace,
     RightBrace,
 
-    Equals,
     Comma,
     Dot,
     Colon,
     Arrow,
     Fn,
     
-    String,
+    True,
+    False,
     Integer,
-    Float,
-    Literal
+    Literal,
 }
 
 impl fmt::Display for TokenType {
@@ -52,16 +65,15 @@ impl fmt::Display for TokenType {
             TokenType::LeftBrace => write!(f, "{{"),
             TokenType::RightBrace => write!(f, "}}"),
 
-            TokenType::Equals => write!(f, "="),
             TokenType::Dot => write!(f, "."),
             TokenType::Comma => write!(f, ","),
             TokenType::Colon => write!(f, ":"),
             TokenType::Arrow => write!(f, "->"),
             TokenType::Fn => write!(f, "fn"),
 
-            TokenType::String => write!(f, "String"),
+            TokenType::True => write!(f, "True"),
+            TokenType::False => write!(f, "False"),
             TokenType::Integer => write!(f, "Integer"),
-            TokenType::Float => write!(f, "Float"),
             TokenType::Literal => write!(f, "Literal")
         }
     }
@@ -82,25 +94,45 @@ impl Token {
 
 #[derive(Debug, Clone)]
 pub enum ASTNode {
+    Fn(String, Vec<Symbol>, T, Vec<ASTNode>),
     Call(String, Vec<ASTNode>),
+    Var(Symbol),
     Int(i32),
     Bool(bool),
 }
 
-// Types of function arguments and returns
-#[derive(PartialEq)]
-pub enum T<'a> {
-    Int,
-    Bool,
-    Generic(&'a str)
+impl ASTNode {
+    pub fn imm_repr(&self) -> String {
+        match self {
+            ASTNode::Int(v) => format!("{v}"),
+            ASTNode::Bool(v) => if *v { String::from("1") } else { String::from("0") }
+            _ => String::new()
+        }
+    }
 }
 
-impl<'a> fmt::Display for T<'a> {
+// Types of function arguments and returns
+#[derive(Debug, PartialEq, Clone)]
+pub enum T {
+    Int,
+    Bool,
+    Fn,
+    Generic(String)
+}
+
+impl fmt::Display for T {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             T::Int => write!(f, "Int"),
             T::Bool => write!(f, "Bool"),
+            T::Fn => write!(f, "Fn"),
             T::Generic(generic_name) => write!(f, "Generic({generic_name})"),
         }
+    }
+}
+
+impl<'a> T {
+    pub fn gen(name: &'a str) -> T {
+        T::Generic(name.to_string())
     }
 }

@@ -1,24 +1,19 @@
-use std::iter::Peekable;
+use std::iter::{Enumerate, Peekable};
+use std::str::Chars;
 
 use crate::types::{Token, TokenType};
 
-struct Scanner<'a, I>
-where
-    I: Iterator<Item = (usize, char)>
-{
+struct Scanner<'a> {
     code: &'a str,
-    chars: Peekable<I>,
+    chars: Peekable<Enumerate<Chars<'a>>>,
     line: usize,
 }
 
-impl<'a, I> Scanner<'a, I>
-where
-    I: Iterator<Item = (usize, char)>,
-{
-    fn new(code: &'a str, chars: I) -> Self {
+impl<'a> Scanner<'a> {
+    fn new(code: &'a str) -> Self {
         Scanner {
             code,
-            chars: chars.peekable(),
+            chars: code.chars().enumerate().peekable(),
             line: 1,
         }
     }
@@ -26,7 +21,7 @@ where
 
 pub fn get_tokens(code: &str) -> Vec<Token> {
     let mut tokens: Vec<Token> = Vec::new();
-    let mut scanner = Scanner::new(code, code.chars().enumerate());
+    let mut scanner = Scanner::new(code);
     
     while let Some((i, c)) = scanner.chars.next() {
         tokens.push(
@@ -38,7 +33,6 @@ pub fn get_tokens(code: &str) -> Vec<Token> {
                 ']' => one_char_token(TokenType::RightBracket, &mut scanner, i),
                 '{' => one_char_token(TokenType::LeftBrace, &mut scanner, i),
                 '}' => one_char_token(TokenType::RightBrace, &mut scanner, i),
-                '=' => one_char_token(TokenType::Equals, &mut scanner, i),
                 ',' => one_char_token(TokenType::Comma, &mut scanner, i),
                 '.' => one_char_token(TokenType::Dot, &mut scanner, i),
                 ':' => one_char_token(TokenType::Colon, &mut scanner, i),
@@ -67,29 +61,6 @@ pub fn get_tokens(code: &str) -> Vec<Token> {
                     }
                 }
 
-                'f' => {
-                    if let Some(&(_, c)) = scanner.chars.peek() {
-                        if c == 'n' {
-                            scanner.chars.next();
-                            Token::new(
-                                TokenType::Fn,
-                                String::from(&scanner.code[i..i+2]),
-                                scanner.line
-                            )
-                        }
-                        else {
-                            scan_literal(&mut scanner, i)
-                        }
-                    } else {
-                        // Can't be anything else
-                        Token::new(
-                            TokenType::Literal,
-                            String::from(&scanner.code[i..i+1]),
-                            scanner.line
-                        )
-                    }
-                }
-
                 // Whitespace
                 '\n' | '\r' => {
                     scanner.line += 1;
@@ -100,9 +71,33 @@ pub fn get_tokens(code: &str) -> Vec<Token> {
                 }
 
                 // Cool stuff
-                '\'' | '\"' => scan_string(&mut scanner, i),
-                '0'..='9' => scan_number(&mut scanner, i),
-                _ => scan_literal(&mut scanner, i),
+                '0'..='9' => scan_int(&mut scanner, i),
+                _ => {
+                    if i + 2 <= scanner.code.len() && &scanner.code[i..i+2] == "fn" {
+                        scanner.chars.next();
+                        Token::new(
+                            TokenType::Fn,
+                            String::from(&scanner.code[i..i+2]),
+                            scanner.line
+                        )
+                    } else if i + 4 <= scanner.code.len() && &scanner.code[i..i+4] == "true" {
+                        for _ in 0..3 { scanner.chars.next(); }
+                        Token::new(
+                            TokenType::True,
+                            String::from(&scanner.code[i..i+4]),
+                            scanner.line
+                        )
+                    } else if i + 5 <= scanner.code.len() && &scanner.code[i..i+5] == "false" {
+                        for _ in 0..4 { scanner.chars.next(); }
+                        Token::new(
+                            TokenType::False,
+                            String::from(&scanner.code[i..i+5]),
+                            scanner.line
+                        )
+                    } else {
+                        scan_literal(&mut scanner, i)
+                    }
+                }
             }
         );
     }
@@ -110,17 +105,11 @@ pub fn get_tokens(code: &str) -> Vec<Token> {
     tokens
 }
 
-fn one_char_token<'a, I>(token_type: TokenType, scanner: &mut Scanner<'a, I>, start: usize) -> Token
-where
-    I: Iterator<Item = (usize, char)>
-{
+fn one_char_token<'a>(token_type: TokenType, scanner: &mut Scanner<'a>, start: usize) -> Token {
     Token::new(token_type, String::from(&scanner.code[start..start+1]), scanner.line)
 }
 
-fn scan_literal<'a, I>(scanner: &mut Scanner<'a, I>, start: usize) -> Token
-where
-    I: Iterator<Item = (usize, char)>
-{
+fn scan_literal<'a>(scanner: &mut Scanner<'a>, start: usize) -> Token {
     let mut arrow_count = 0;
     let mut end = 0;
 
@@ -158,12 +147,8 @@ where
     Token::new(TokenType::Literal, String::from(&scanner.code[start..end]), scanner.line)
 }
 
-fn scan_number<'a, I>(scanner: &mut Scanner<'a, I>, start: usize) -> Token
-where
-    I: Iterator<Item = (usize, char)>
-{
+fn scan_int<'a>(scanner: &mut Scanner<'a>, start: usize) -> Token {
     let mut end = 0;
-    let mut num_type = TokenType::Integer;
 
     while let Some(&(j, c)) = scanner.chars.peek() {
         if c.is_ascii_digit() {
@@ -174,32 +159,5 @@ where
         }
     }
 
-    if let Some(&(_, c)) = scanner.chars.peek() {
-        if c == '.' {
-            scanner.chars.next();
-            num_type = TokenType::Float;
-
-            while let Some(&(j, c)) = scanner.chars.peek() {
-                if c.is_ascii_digit() {
-                    scanner.chars.next();
-                } else {
-                    end = j;
-                    break;
-                }
-            }
-        }
-    }
-
-    Token::new(num_type, String::from(&scanner.code[start..end]), scanner.line)
-}
-
-fn scan_string<'a, I: Iterator<Item = (usize, char)>>(scanner: &mut Scanner<'a, I>, start: usize) -> Token {
-    while let Some(&(j, c)) = scanner.chars.peek() {
-        scanner.chars.next();
-        if c == '"' {
-            return Token::new(TokenType::String, String::from(&scanner.code[start+1..j]), scanner.line);
-        }
-    }
-
-    panic!("String unterminated (Line {})", scanner.line);
+    Token::new(TokenType::Integer, String::from(&scanner.code[start..end]), scanner.line)
 }
