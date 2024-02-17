@@ -10,9 +10,6 @@ use std::fs::{self, File};
 use std::io::prelude::*;
 use std::path::PathBuf;
 
-use crate::symbols::{Symbol, SymbolTable};
-use crate::types::{Buffer, T};
-
 pub fn main() {
     let args: Vec<String> = env::args().collect();
 
@@ -29,24 +26,17 @@ pub fn main() {
 }
 
 fn compile(code: String) -> std::io::Result<()>  {
-    let mut buf = Buffer::new();
-    let mut symbols = SymbolTable::new(vec![
-        Symbol::new_fn("if", vec![T::Bool, T::gen("T"), T::gen("T")], T::gen("T")),
-        Symbol::new_fn("if_else", vec![T::Bool, T::gen("T")], T::gen("T")),
-        Symbol::new_fn("+", vec![T::Int, T::Int], T::Int),
-        Symbol::new_fn("-", vec![T::Int, T::Int], T::Int),
-    ]);
-
-    buf.emit("    .globl fn_main\n");
-
+    let mut symbols = compiler::table_from_inlines();
     let tokens = scanner::get_tokens(&code);
+
     let ast = parser::build_ast(tokens, &mut symbols);
 
+    let mut file = File::create("build/out.c")?;
+
     for branch in ast {
-        compiler::compile_expr(&mut buf, &branch, &mut symbols);
+        let buf = compiler::compile_expr(&branch, &mut symbols);
+        file.write_all(buf.get().as_bytes())?;
     }
 
-    let mut file = File::create("build/out.s")?;
-    file.write_all(buf.get().as_bytes())?;
     Ok(())
 }

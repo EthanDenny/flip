@@ -80,6 +80,13 @@ pub fn get_tokens(code: &str) -> Vec<Token> {
                             String::from(&scanner.code[i..i+2]),
                             scanner.line
                         )
+                    } else if i + 3 <= scanner.code.len() && &scanner.code[i..i+3] == "let" {
+                        for _ in 0..2 { scanner.chars.next(); }
+                        Token::new(
+                            TokenType::Let,
+                            String::from(&scanner.code[i..i+3]),
+                            scanner.line
+                        )
                     } else if i + 4 <= scanner.code.len() && &scanner.code[i..i+4] == "true" {
                         for _ in 0..3 { scanner.chars.next(); }
                         Token::new(

@@ -13,14 +13,36 @@ pub fn build_ast(tokens: Vec<Token>, symbols: &mut SymbolTable) -> Vec<ASTNode> 
             TokenType::Fn => {
                 tree.push(consume_fn_dec(&mut tokens, symbols));
             }
-            TokenType::Literal => {
-                tree.push(consume_fn_call(token.content, &mut tokens, symbols));
-            }
             _ => {}
         }
     }
 
     tree
+}
+
+fn consume_let<'a, I>(tokens: &mut Peekable<I>, symbols: &mut SymbolTable) -> ASTNode
+where
+    I: Iterator<Item = Token>
+{
+    expect(tokens, TokenType::LeftParen);
+
+    let name = expect(tokens, TokenType::Literal).content;    
+
+    expect(tokens, TokenType::Colon);
+
+    let symbol_type = parse_type(expect(tokens, TokenType::Literal).content);
+
+    expect(tokens, TokenType::Comma);
+
+    let value = get_arg(tokens, symbols);
+
+    expect(tokens, TokenType::RightParen);
+
+    let symbol = Symbol::new_var(&name, symbol_type);
+
+    symbols.insert(symbol.clone());
+    
+    ASTNode::Let(symbol, Box::new(value))
 }
 
 fn consume_fn_dec<'a, I>(tokens: &mut Peekable<I>, symbols: &mut SymbolTable) -> ASTNode
@@ -44,12 +66,13 @@ where
     // currently, the programmer must be trusted
     let return_type = consume_return(tokens);
 
+    symbols.insert(Symbol::new_fn(&name_token.content, arg_types, return_type.clone()));
+
     let mut scoped_symbols = symbols.clone();
     scoped_symbols.insert_vec(&args);
 
     let body = consume_body(tokens, &mut scoped_symbols);
-
-    symbols.insert(Symbol::new_fn(&name_token.content, arg_types, return_type.clone()));
+    
     ASTNode::Fn(name, args, return_type, body)
 }
 
@@ -114,11 +137,18 @@ where
     let mut calls = Vec::new();
 
     while let Some(token) = tokens.peek() {
-        if token.token_type == TokenType::RightBrace {
-            consume(tokens);
-            break;
-        } else {
-            calls.push(get_arg(tokens, symbols));
+        match token.token_type {
+            TokenType::RightBrace => {
+                consume(tokens);
+                break;
+            }
+            TokenType::Let => {
+                consume(tokens);
+                calls.push(consume_let(tokens, symbols));
+            }
+            _ => {
+                calls.push(get_arg(tokens, symbols));
+            }
         }
     }
 

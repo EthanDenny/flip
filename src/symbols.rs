@@ -101,6 +101,7 @@ impl SymbolTable {
     pub fn get_type<'a>(&self, node: &ASTNode) -> T {
         match node {
             ASTNode::Fn(_, _, _, _) => T::Fn,
+            ASTNode::Let(_, _) => throw("Cannot pass a let-binding as an argument"),
             ASTNode::Call(name, args) => {
                 let return_type = self.get_return_type(name, args);
 

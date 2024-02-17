@@ -1,6 +1,6 @@
 /target
 build/out
-*.s
+*.c
 *.flip
 
 

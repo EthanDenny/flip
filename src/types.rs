@@ -3,16 +3,18 @@ use std::fmt;
 use crate::symbols::Symbol;
 
 pub struct Buffer {
-    content: String,
-    label: i64
+    content: String
+}
+
+impl fmt::Display for Buffer {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.content)
+    }
 }
 
 impl Buffer {
     pub fn new() -> Buffer {
-        Buffer {
-            content: String::new(),
-            label: 0
-        }
+        Buffer { content: String::new() }
     }
 
     pub fn emit(&mut self, text: &str) {
@@ -25,12 +27,6 @@ impl Buffer {
 
     pub fn get<'a>(self) -> String {
         self.content
-    }
-
-    pub fn get_label(&mut self) -> String {
-        let next_label = self.label;
-        self.label += 1;
-        format!(".L{next_label}")
     }
 }
 
@@ -48,6 +44,7 @@ pub enum TokenType {
     Colon,
     Arrow,
     Fn,
+    Let,
     
     True,
     False,
@@ -70,6 +67,7 @@ impl fmt::Display for TokenType {
             TokenType::Colon => write!(f, ":"),
             TokenType::Arrow => write!(f, "->"),
             TokenType::Fn => write!(f, "fn"),
+            TokenType::Let => write!(f, "let"),
 
             TokenType::True => write!(f, "True"),
             TokenType::False => write!(f, "False"),
@@ -96,6 +94,7 @@ impl Token {
 pub enum ASTNode {
     Fn(String, Vec<Symbol>, T, Vec<ASTNode>),
     Call(String, Vec<ASTNode>),
+    Let(Symbol, Box<ASTNode>),
     Var(Symbol),
     Int(i32),
     Bool(bool),
@@ -106,6 +105,7 @@ impl ASTNode {
         match self {
             ASTNode::Int(v) => format!("{v}"),
             ASTNode::Bool(v) => if *v { String::from("1") } else { String::from("0") }
+            ASTNode::Var(s) => s.name.clone(),
             _ => String::new()
         }
     }
