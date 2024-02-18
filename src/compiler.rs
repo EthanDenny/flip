@@ -1,8 +1,7 @@
-use crate::error::throw;
 use crate::symbols::{Symbol, SymbolTable};
 use crate::types::{ASTNode, Buffer, T};
 
-type InlineFnBody<'a> = &'a (dyn Fn(Vec<ASTNode>, &'a mut SymbolTable) -> Buffer);
+type InlineFnBody<'a> = &'a (dyn Fn(Vec<ASTNode>, &'a mut SymbolTable) -> String);
 type InlineFn<'a> = (&'a str, Vec<T>, T, InlineFnBody<'a>);
 
 pub fn compile_expr<'a>(node: &ASTNode, symbols: &mut SymbolTable) -> Buffer {
@@ -38,7 +37,7 @@ pub fn compile_expr<'a>(node: &ASTNode, symbols: &mut SymbolTable) -> Buffer {
         }
         ASTNode::Call(name, args) => {
             if let Some(body) = get_inline_fn_body(name, args, symbols) {
-                buf.emit(&body(args.to_vec(), symbols).get());
+                buf.emit(&body(args.to_vec(), symbols));
             } else if symbols.check_types(name, args) {
                 let mut fn_call = format!("fn_{name}(");
 
@@ -88,62 +87,37 @@ pub fn table_from_inlines() -> SymbolTable {
 
 fn get_inlines<'a>() -> Vec<InlineFn<'a>> {
     vec![
-        ("+", vec![T::Int, T::Int], T::Int, &|args, symbols| {
-            let mut buf = Buffer::new();
+        ("+", vec![T::Int, T::Int], T::Int, &|args, symbols| binary_op("+", args, symbols)),
+        ("-", vec![T::Int, T::Int], T::Int, &|args, symbols| binary_op("-", args, symbols)),
+        ("*", vec![T::Int, T::Int], T::Int, &|args, symbols| binary_op("*", args, symbols)),
+        ("/", vec![T::Int, T::Int], T::Int, &|args, symbols| binary_op("/", args, symbols)),
+        ("mod", vec![T::Int, T::Int], T::Int, &|args, symbols| binary_op("%", args, symbols)),
 
-            buf.emit(&format!(
-                "({} + {})",
-                compile_expr(&args[0], symbols),
-                compile_expr(&args[1], symbols)
-            ));
+        ("=", vec![T::gen("T"), T::gen("T")], T::Bool, &|args, symbols| binary_op("==", args, symbols)),
+        ("!=", vec![T::gen("T"), T::gen("T")], T::Bool, &|args, symbols| binary_op("!=", args, symbols)),
+        (">", vec![T::gen("T"), T::gen("T")], T::Bool, &|args, symbols| binary_op(">", args, symbols)),
+        ("<", vec![T::gen("T"), T::gen("T")], T::Bool, &|args, symbols| binary_op("<", args, symbols)),
+        (">=", vec![T::gen("T"), T::gen("T")], T::Bool, &|args, symbols| binary_op(">=", args, symbols)),
+        ("<=", vec![T::gen("T"), T::gen("T")], T::Bool, &|args, symbols| binary_op("<=", args, symbols)),
 
-            buf
+        ("and", vec![T::Bool, T::Bool], T::Bool, &|args, symbols| binary_op("&&", args, symbols)),
+        ("or", vec![T::Bool, T::Bool], T::Bool, &|args, symbols| binary_op("||", args, symbols)),
+        ("not", vec![T::Bool], T::Bool, &|args, symbols| {
+            format!("(!{})",
+                compile_expr(&args[0], symbols))
         }),
-        (">", vec![T::Int, T::Int], T::Bool, &|args, symbols| {
-            let mut buf = Buffer::new();
 
-            buf.emit(&format!(
-                "({} > {})",
-                compile_expr(&args[0], symbols),
-                compile_expr(&args[1], symbols)
-            ));
-
-            buf
-        }),
-        ("-", vec![T::Int, T::Int], T::Int, &|args, symbols| {
-            let mut buf = Buffer::new();
-
-            buf.emit(&format!(
-                "({} - {})",
-                compile_expr(&args[0], symbols),
-                compile_expr(&args[1], symbols)
-            ));
-
-            buf
-        }),
         ("if", vec![T::Bool, T::gen("T"), T::gen("T")], T::gen("T"), &|args, symbols| {
-            let mut buf = Buffer::new();
-
-            match &args[0] {
-                ASTNode::Bool(true) => {
-                    compile_expr(&args[1], symbols);
-                }
-                ASTNode::Bool(false) => {
-                    compile_expr(&args[2], symbols);
-                }
-                ASTNode::Call(_, _) |
-                ASTNode::Var(_) => {
-                    buf.emit(&format!(
-                        "({} != 0 ? {} : {})",
-                        compile_expr(&args[0], symbols),
-                        compile_expr(&args[1], symbols),
-                        compile_expr(&args[2], symbols),
-                    ));
-                }
-                _ => throw("Incorrect types")
-            }
-
-            buf
+            format!("({} != 0 ? {} : {})",
+                compile_expr(&args[0], symbols),
+                compile_expr(&args[1], symbols),
+                compile_expr(&args[2], symbols))
         })
     ]
+}
+
+fn binary_op<'a>(op: &'a str, args: Vec<ASTNode>, symbols: &mut SymbolTable) -> String {
+    format!("({} {op} {})",
+        compile_expr(&args[0], symbols),
+        compile_expr(&args[1], symbols))
 }
