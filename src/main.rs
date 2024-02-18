@@ -9,6 +9,8 @@ use std::env;
 use std::fs::{self, File};
 use std::io::prelude::*;
 use std::path::PathBuf;
+use std::process::Command;
+use std::str::from_utf8;
 
 pub fn main() {
     let args: Vec<String> = env::args().collect();
@@ -37,6 +39,20 @@ fn compile(code: String) -> std::io::Result<()>  {
         let buf = compiler::compile_expr(&branch, &mut symbols);
         file.write_all(buf.get().as_bytes())?;
     }
+
+    Command::new("gcc")
+        .arg("print.c")
+        .arg("build/out.c")
+        .arg("-o")
+        .arg("build/out")
+        .output()
+        .expect("Failed to compile C");
+
+    let output = Command::new("./build/out")
+        .output()
+        .expect("Failed to execute");
+
+    print!("{}", from_utf8(&output.stdout).unwrap());
 
     Ok(())
 }
