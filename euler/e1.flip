@@ -1,0 +1,20 @@
+multiple_of(n: Int, m: Int): Bool {
+    =(mod(n, m), 0)
+}
+
+sum_mul(n: Int): Int {
+    let(next_sum: Int, if(=(n, 0), 0, sum_mul(-(n, 1))))
+
+    if(or(multiple_of(n, 3), multiple_of(n, 5)),
+        +(n, next_sum),
+        next_sum
+    )
+}
+
+get_result(n: Int): Int {
+    sum_mul(-(n, 1))
+}
+
+main() {
+    get_result(1000)
+}

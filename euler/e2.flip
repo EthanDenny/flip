@@ -1,0 +1,17 @@
+fib(a: Int, b: Int, n: Int): Int {
+    if(<=(a, n),
+        if(=(mod(a, 2), 0),
+            +(a, fib(b, +(a, b), n)),
+            fib(b, +(a, b), n)
+        ),
+        0
+    )
+}
+
+sum_even_fib_below(n: Int): Int {
+    fib(1, 2, n)
+}
+
+main() {
+    sum_even_fib_below(4000000)
+}
