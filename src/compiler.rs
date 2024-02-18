@@ -121,24 +121,7 @@ fn get_inlines<'a>() -> Vec<InlineFn<'a>> {
 
             buf
         }),
-        ("if", vec![T::Bool, T::gen("T")], T::gen("T"), &|args, symbols| {
-            let mut buf = Buffer::new();
-            
-            match &args[0] {
-                ASTNode::Bool(false) => {
-                    // This will never be run, so compile nothing
-                }
-                _ => {
-                    buf.emit(&format!(
-                        "({})",
-                        compile_expr(&args[1], symbols)
-                    ));
-                }
-            }
-
-            buf
-        }),
-        ("if_else", vec![T::Bool, T::gen("T"), T::gen("T")], T::gen("T"), &|args, symbols| {
+        ("if", vec![T::Bool, T::gen("T"), T::gen("T")], T::gen("T"), &|args, symbols| {
             let mut buf = Buffer::new();
 
             match &args[0] {
