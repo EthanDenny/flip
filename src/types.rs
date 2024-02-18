@@ -42,8 +42,6 @@ pub enum TokenType {
     Comma,
     Dot,
     Colon,
-    Arrow,
-    Fn,
     Let,
     
     True,
@@ -65,8 +63,6 @@ impl fmt::Display for TokenType {
             TokenType::Dot => write!(f, "."),
             TokenType::Comma => write!(f, ","),
             TokenType::Colon => write!(f, ":"),
-            TokenType::Arrow => write!(f, "->"),
-            TokenType::Fn => write!(f, "fn"),
             TokenType::Let => write!(f, "let"),
 
             TokenType::True => write!(f, "True"),

@@ -36,30 +36,6 @@ pub fn get_tokens(code: &str) -> Vec<Token> {
                 ',' => one_char_token(TokenType::Comma, &mut scanner, i),
                 '.' => one_char_token(TokenType::Dot, &mut scanner, i),
                 ':' => one_char_token(TokenType::Colon, &mut scanner, i),
-                
-                // Two-character tokens
-                '-' => {
-                    if let Some(&(_, c)) = scanner.chars.peek() {
-                        if c == '>' {
-                            scanner.chars.next();
-                            Token::new(
-                                TokenType::Arrow,
-                                String::from(&scanner.code[i..i+2]),
-                                scanner.line
-                            )
-                        }
-                        else {
-                            scan_literal(&mut scanner, i)
-                        }
-                    } else {
-                        // Can't be anything else
-                        Token::new(
-                            TokenType::Literal,
-                            String::from(&scanner.code[i..i+1]),
-                            scanner.line
-                        )
-                    }
-                }
 
                 // Whitespace
                 '\n' | '\r' => {
@@ -73,14 +49,7 @@ pub fn get_tokens(code: &str) -> Vec<Token> {
                 // Cool stuff
                 '0'..='9' => scan_int(&mut scanner, i),
                 _ => {
-                    if i + 2 <= scanner.code.len() && &scanner.code[i..i+2] == "fn" {
-                        scanner.chars.next();
-                        Token::new(
-                            TokenType::Fn,
-                            String::from(&scanner.code[i..i+2]),
-                            scanner.line
-                        )
-                    } else if i + 3 <= scanner.code.len() && &scanner.code[i..i+3] == "let" {
+                    if i + 3 <= scanner.code.len() && &scanner.code[i..i+3] == "let" {
                         for _ in 0..2 { scanner.chars.next(); }
                         Token::new(
                             TokenType::Let,
@@ -117,38 +86,20 @@ fn one_char_token<'a>(token_type: TokenType, scanner: &mut Scanner<'a>, start: u
 }
 
 fn scan_literal<'a>(scanner: &mut Scanner<'a>, start: usize) -> Token {
-    let mut arrow_count = 0;
     let mut end = 0;
 
     while let Some(&(j, c)) = scanner.chars.peek() {
         match c {
-            '<' => {
-                arrow_count += 1;
-            }
-            '>' => {
-                arrow_count -= 1;
-            }
-            ',' | ' ' => {
-                if arrow_count == 0 {
-                    end = j;
-                    break;
-                }
-            }
             '(' | ')' | '[' | ']' | '{' | '}' |
-            '=' | '.' | ':' | '-' |
+            '.' | ':' | '-' |
             '0'..='9' | '\'' | '\"' |
+            ',' | ' ' |
             '\n' | '\r' | '\t' => {
-                if arrow_count == 0 {
-                    end = j;
-                    break;
-                } else {
-                    panic!("Type literal mangled (Line {})", scanner.line);
-                }
+                end = j;
+                break;
             }
-            _ => {}
+            _ => { scanner.chars.next(); }
         }
-
-        scanner.chars.next();
     }
 
     Token::new(TokenType::Literal, String::from(&scanner.code[start..end]), scanner.line)

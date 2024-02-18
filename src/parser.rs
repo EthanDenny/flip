@@ -8,13 +8,8 @@ pub fn build_ast(tokens: Vec<Token>, symbols: &mut SymbolTable) -> Vec<ASTNode> 
     let mut tokens = tokens.into_iter().peekable();
     let mut tree: Vec<ASTNode> = vec![];
 
-    while let Some(token) = tokens.next() {
-        match token.token_type {
-            TokenType::Fn => {
-                tree.push(consume_fn_dec(&mut tokens, symbols));
-            }
-            _ => {}
-        }
+    while tokens.peek().is_some() {
+        tree.push(consume_fn_dec(&mut tokens, symbols));
     }
 
     tree
@@ -81,7 +76,7 @@ where
     I: Iterator<Item = Token>
 {
     if let Some(token) = tokens.peek() {
-        if token.token_type == TokenType::Arrow {
+        if token.token_type == TokenType::Colon {
             consume(tokens);
             let type_name = expect(tokens, TokenType::Literal).content;
             parse_type(type_name)
