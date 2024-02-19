@@ -36,7 +36,9 @@ fn consume_fn(tokens: &mut TokensList, symbols: &mut SymbolTable) -> ASTNode {
     let body_last_type = symbols.get_node_type(body.last().unwrap());
 
     if body_last_type != return_type {
-        throw(&format!("Expected function \"{}\" to return \"{return_type}\", got \"{body_last_type}\" instead", name_token.content));
+        if !(name == "fn_main" && body_last_type == NodeType::Int) {
+            throw(&format!("Expected function \"{}\" to return \"{return_type}\", got \"{body_last_type}\" instead", name_token.content));
+        }
     }
 
     ASTNode::Fn(name, arg_symbols, return_type, body)
