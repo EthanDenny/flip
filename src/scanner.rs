@@ -1,7 +1,7 @@
 use std::iter::{Enumerate, Peekable};
 use std::str::Chars;
 
-use crate::types::{Token, TokenType};
+use crate::tokens::{Token, TokenType};
 
 struct Scanner<'a> {
     code: &'a str,

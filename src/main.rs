@@ -1,9 +1,10 @@
+mod ast;
 mod compiler;
 mod error;
 mod parser;
 mod scanner;
 mod symbols;
-mod types;
+mod tokens;
 
 use std::env;
 use std::fs::{self, File};

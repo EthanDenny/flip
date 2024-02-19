@@ -1,108 +1,59 @@
-use std::iter::Peekable;
-
 use crate::error::{throw, throw_at};
 use crate::symbols::{Symbol, SymbolTable};
-use crate::types::{ASTNode, Token, TokenType, T};
+use crate::ast::{ASTNode, NodeType};
+use crate::tokens::{Token, TokenType, TokensList};
 
-pub fn build_ast(tokens: Vec<Token>, symbols: &mut SymbolTable) -> Vec<ASTNode> {
-    let mut tokens = tokens.into_iter().peekable();
+pub fn build_ast(token_vec: Vec<Token>, symbols: &mut SymbolTable) -> Vec<ASTNode> {
+    let mut tokens = TokensList::from(token_vec);
     let mut tree: Vec<ASTNode> = vec![];
 
     while tokens.peek().is_some() {
-        tree.push(consume_fn_dec(&mut tokens, symbols));
+        tree.push(consume_fn(&mut tokens, symbols));
     }
 
     tree
 }
 
-fn consume_let<'a, I>(tokens: &mut Peekable<I>, symbols: &mut SymbolTable) -> ASTNode
-where
-    I: Iterator<Item = Token>
-{
-    expect(tokens, TokenType::LeftParen);
-
-    let name = expect(tokens, TokenType::Literal).content;    
-
-    expect(tokens, TokenType::Colon);
-
-    let symbol_type = parse_type(expect(tokens, TokenType::Literal).content);
-
-    expect(tokens, TokenType::Comma);
-
-    let value = get_arg(tokens, symbols);
-
-    expect(tokens, TokenType::RightParen);
-
-    let symbol = Symbol::new_var(&name, symbol_type);
-
-    symbols.insert(symbol.clone());
-    
-    ASTNode::Let(symbol, Box::new(value))
-}
-
-fn consume_fn_dec<'a, I>(tokens: &mut Peekable<I>, symbols: &mut SymbolTable) -> ASTNode
-where
-    I: Iterator<Item = Token>
-{
+fn consume_fn(tokens: &mut TokensList, symbols: &mut SymbolTable) -> ASTNode {
     let mut name = String::from("fn_");
-    let name_token = expect(tokens, TokenType::Literal);
+    let name_token = tokens.expect(TokenType::Literal);
     name.push_str(&name_token.content);
 
-    expect(tokens, TokenType::LeftParen);
+    tokens.expect(TokenType::LeftParen);
 
-    let args = consume_args(tokens);
+    let args = consume_fn_args(tokens);
     let arg_types = args.iter()
         .map(|arg| arg.symbol_type.clone())
         .collect();
 
-    expect(tokens, TokenType::RightParen);
+    tokens.expect(TokenType::RightParen);
 
     // No guaruntee this is actually what is returned by the function,
     // currently, the programmer must be trusted
-    let return_type = consume_return(tokens);
+    let return_type = consume_fn_return(tokens);
 
     symbols.insert(Symbol::new_fn(&name_token.content, arg_types, return_type.clone()));
 
     let mut scoped_symbols = symbols.clone();
-    scoped_symbols.insert_vec(&args);
+    scoped_symbols.insert_vec(args.clone());
 
-    let body = consume_body(tokens, &mut scoped_symbols);
-    
+    let body = consume_block(tokens, &mut scoped_symbols);
+
     ASTNode::Fn(name, args, return_type, body)
 }
 
-fn consume_return<'a, I>(tokens: &mut Peekable<I>) -> T
-where
-    I: Iterator<Item = Token>
-{
-    if let Some(token) = tokens.peek() {
-        if token.token_type == TokenType::Colon {
-            consume(tokens);
-            let type_name = expect(tokens, TokenType::Literal).content;
-            parse_type(type_name)
-        } else {
-            T::None
-        }
-    } else {
-        throw("Expected return type or block, got end")
-    }
-}
-
-fn consume_args<'a, I>(tokens: &mut Peekable<I>) -> Vec<Symbol>
-where
-    I: Iterator<Item = Token>
-{
+fn consume_fn_args(tokens: &mut TokensList) -> Vec<Symbol> {
     let mut args = Vec::new();
 
     while let Some(token) = tokens.peek() {
         if token.token_type != TokenType::RightParen {
             if token.token_type == TokenType::Comma {
-                consume(tokens);
+                tokens.consume();
             }
 
-            let arg_name = expect(tokens, TokenType::Literal).content;
-            expect(tokens, TokenType::Colon);
-            let arg_type = expect(tokens, TokenType::Literal).content;
+            let arg_name = tokens.expect(TokenType::Literal).content;
+            tokens.expect(TokenType::Colon);
+            let arg_type = tokens.expect(TokenType::Literal).content;
             args.push(Symbol::new_var(&arg_name, parse_type(arg_type)));
 
         } else {
@@ -113,36 +64,39 @@ where
     args
 }
 
-fn parse_type(type_name: String) -> T {
-    match type_name.as_ref() {
-        "Int" => T::Int,
-        "Bool" => T::Bool,
-        "Fn" => T::Fn,
-        "None" => T::None,
-        _ => T::Generic(type_name)
+fn consume_fn_return(tokens: &mut TokensList) -> NodeType {
+    if let Some(token) = tokens.peek() {
+        if token.token_type == TokenType::Colon {
+            tokens.consume();
+            let type_name = tokens.expect(TokenType::Literal).content;
+            parse_type(type_name)
+        } else {
+            NodeType::None
+        }
+    } else {
+        throw("Expected return type or block, got end")
     }
 }
 
-fn consume_body<'a, I>(tokens: &mut Peekable<I>, symbols: &mut SymbolTable) -> Vec<ASTNode>
-where
-    I: Iterator<Item = Token>
-{
-    expect(tokens, TokenType::LeftBrace);
+// Statements surrounded by braces: { ... }
+// "symbols" should be a SymbolTable created for ONLY this block
+fn consume_block(tokens: &mut TokensList, symbols: &mut SymbolTable) -> Vec<ASTNode> {
+    tokens.expect(TokenType::LeftBrace);
 
     let mut calls = Vec::new();
 
     while let Some(token) = tokens.peek() {
         match token.token_type {
             TokenType::RightBrace => {
-                consume(tokens);
+                tokens.consume();
                 break;
             }
             TokenType::Let => {
-                consume(tokens);
+                tokens.consume();
                 calls.push(consume_let(tokens, symbols));
             }
             _ => {
-                calls.push(get_arg(tokens, symbols));
+                calls.push(parse_node(tokens, symbols));
             }
         }
     }
@@ -150,26 +104,38 @@ where
     calls
 }
 
-fn consume_fn_call<'a, I>(name: String, tokens: &mut Peekable<I>, symbols: &mut SymbolTable) -> ASTNode
-where
-    I: Iterator<Item = Token>
-{
-    let left_paren = expect(tokens, TokenType::LeftParen);
+fn consume_let(tokens: &mut TokensList, symbols: &mut SymbolTable) -> ASTNode {
+    tokens.expect(TokenType::LeftParen);
+    let name = tokens.expect(TokenType::Literal).content;    
+    tokens.expect(TokenType::Colon);
+    let symbol_type = parse_type(tokens.expect(TokenType::Literal).content);
+    tokens.expect(TokenType::Comma);
+    let value = parse_node(tokens, symbols);
+    tokens.expect(TokenType::RightParen);
+    
+    let symbol = Symbol::new_var(&name, symbol_type);
+    symbols.insert(symbol.clone());
+    
+    ASTNode::Let(symbol, Box::new(value))
+}
+
+fn consume_call(name: String, tokens: &mut TokensList, symbols: &mut SymbolTable) -> ASTNode {
+    let left_paren = tokens.expect(TokenType::LeftParen);
 
     if let Some(token) = tokens.peek() {
         if token.token_type == TokenType::RightParen {
-            consume(tokens);
+            tokens.consume();
             ASTNode::Call(name, Vec::new())
         } else {
-            let mut args = vec![get_arg(tokens, symbols)];
+            let mut args = vec![parse_node(tokens, symbols)];
 
             while let Some(token) = tokens.peek() {
                 if token.token_type == TokenType::RightParen {
                     tokens.next();
                     break;
                 } else {
-                    expect(tokens, TokenType::Comma);
-                    args.push(get_arg(tokens, symbols));
+                    tokens.expect(TokenType::Comma);
+                    args.push(parse_node(tokens, symbols));
                 }
             }
 
@@ -180,11 +146,8 @@ where
     }
 }
 
-fn get_arg<I>(tokens: &mut Peekable<I>, symbols: &mut SymbolTable) -> ASTNode
-where
-    I: Iterator<Item = Token>
-{
-    let token = consume(tokens);
+fn parse_node(tokens: &mut TokensList, symbols: &mut SymbolTable) -> ASTNode {
+    let token = tokens.consume();
 
     match token.token_type {
         TokenType::Integer => ASTNode::Int(token.content.parse::<i32>().unwrap()),
@@ -193,7 +156,7 @@ where
         TokenType::Literal => {
             let mut symbol = None;
 
-            for s in symbols.table.iter() {
+            for s in symbols.iter() {
                 if s.name == token.content {
                     symbol = Some(s.clone());
                     break;
@@ -202,7 +165,7 @@ where
 
             if let Some(s) = symbol {
                 if let Some(_) = s.arg_types {
-                    consume_fn_call(token.content, tokens, symbols)
+                    consume_call(token.content, tokens, symbols)
                 } else {
                     ASTNode::Var(Symbol::new_var(&token.content, s.symbol_type))
                 }
@@ -215,26 +178,12 @@ where
     }
 }
 
-fn consume<'a, I>(tokens: &mut Peekable<I>) -> Token
-where
-    I: Iterator<Item = Token>
-{
-    if let Some(token) = tokens.next() {
-        return token;
-    }
-
-    throw("Expected another token, but reached end");
-}
-
-fn expect<'a, I>(tokens: &mut Peekable<I>, expected: TokenType) -> Token
-where
-    I: Iterator<Item = Token>,
-{
-    let token = consume(tokens);
-
-    if token.token_type == expected {
-        return token;
-    } else {
-        throw_at(&format!("Unexpected token {}, expected {expected:?}", token.content), token.line);
+fn parse_type(type_name: String) -> NodeType {
+    match type_name.as_ref() {
+        "Int" => NodeType::Int,
+        "Bool" => NodeType::Bool,
+        "Fn" => NodeType::Fn,
+        "None" => NodeType::None,
+        _ => NodeType::Generic(type_name)
     }
 }

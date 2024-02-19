@@ -1,8 +1,38 @@
+use std::fmt;
+
 use crate::symbols::{Symbol, SymbolTable};
-use crate::types::{ASTNode, Buffer, T};
+use crate::ast::{ASTNode, NodeType};
 
 type InlineFnBody<'a> = &'a (dyn Fn(Vec<ASTNode>, &'a mut SymbolTable) -> String);
-type InlineFn<'a> = (&'a str, Vec<T>, T, InlineFnBody<'a>);
+type InlineFn<'a> = (&'a str, Vec<NodeType>, NodeType, InlineFnBody<'a>);
+
+pub struct Buffer {
+    content: String
+}
+
+impl fmt::Display for Buffer {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.content)
+    }
+}
+
+impl Buffer {
+    pub fn new() -> Buffer {
+        Buffer { content: String::new() }
+    }
+
+    pub fn emit(&mut self, text: &str) {
+        self.content.push_str(text);
+    }
+
+    pub fn emit_instr(&mut self, text: &str) {
+        self.content.push_str(&format!("    {text}\n"));
+    }
+
+    pub fn get<'a>(self) -> String {
+        self.content
+    }
+}
 
 pub fn compile_expr<'a>(node: &ASTNode, symbols: &mut SymbolTable) -> Buffer {
     let mut buf = Buffer::new();
@@ -15,25 +45,24 @@ pub fn compile_expr<'a>(node: &ASTNode, symbols: &mut SymbolTable) -> Buffer {
             buf.emit(&format!("int {name}("));
 
             if args.len() > 0 {
-                let max_args_index = args.len() - 1;
+                let max_index = args.len() - 1;
                 
-                for i in 0..max_args_index {
+                for i in 0..max_index {
                     buf.emit(&format!("int {}, ", args[i].name));
                 }
 
-                buf.emit(&format!("int {}", args[max_args_index].name));
+                buf.emit(&format!("int {}", args[max_index].name));
             }
-
+            
             buf.emit(") {\n");
 
+            let max_index = body.len() - 1;
 
-            let max_branch_index = body.len() - 1;
-
-            for i in 0..max_branch_index {
+            for i in 0..max_index {
                 buf.emit(&compile_expr(&body[i], symbols).get());
             }
 
-            buf.emit_instr(&format!("return {};\n}}", compile_expr(&body[max_branch_index], symbols).get()));
+            buf.emit_instr(&format!("return {};\n}}", compile_expr(&body[max_index], symbols).get()));
         }
         ASTNode::Call(name, args) => {
             if let Some(body) = get_inline_fn_body(name, args, symbols) {
@@ -41,13 +70,13 @@ pub fn compile_expr<'a>(node: &ASTNode, symbols: &mut SymbolTable) -> Buffer {
             } else if symbols.check_types(name, args) {
                 let mut fn_call = format!("fn_{name}(");
 
-                let max_args_index = args.len() - 1;
+                let max_index = args.len() - 1;
                 
-                for i in 0..max_args_index {
+                for i in 0..max_index {
                     fn_call.push_str(&format!("{}, ", compile_expr(&args[i], symbols)));
                 }
                 
-                fn_call.push_str(&format!("{})", compile_expr(&args[max_args_index], symbols)));
+                fn_call.push_str(&format!("{})", compile_expr(&args[max_index], symbols)));
 
                 buf.emit(&fn_call);
             } else {
@@ -82,32 +111,32 @@ pub fn table_from_inlines() -> SymbolTable {
         table.push(Symbol::new_fn(name, arg_types, return_type))
     }
 
-    SymbolTable::new(table)
+    SymbolTable::from(table)
 }
 
 fn get_inlines<'a>() -> Vec<InlineFn<'a>> {
     vec![
-        ("+", vec![T::Int, T::Int], T::Int, &|args, symbols| binary_op("+", args, symbols)),
-        ("-", vec![T::Int, T::Int], T::Int, &|args, symbols| binary_op("-", args, symbols)),
-        ("*", vec![T::Int, T::Int], T::Int, &|args, symbols| binary_op("*", args, symbols)),
-        ("/", vec![T::Int, T::Int], T::Int, &|args, symbols| binary_op("/", args, symbols)),
-        ("mod", vec![T::Int, T::Int], T::Int, &|args, symbols| binary_op("%", args, symbols)),
+        ("+", vec![NodeType::Int, NodeType::Int], NodeType::Int, &|args, symbols| binary_op("+", args, symbols)),
+        ("-", vec![NodeType::Int, NodeType::Int], NodeType::Int, &|args, symbols| binary_op("-", args, symbols)),
+        ("*", vec![NodeType::Int, NodeType::Int], NodeType::Int, &|args, symbols| binary_op("*", args, symbols)),
+        ("/", vec![NodeType::Int, NodeType::Int], NodeType::Int, &|args, symbols| binary_op("/", args, symbols)),
+        ("mod", vec![NodeType::Int, NodeType::Int], NodeType::Int, &|args, symbols| binary_op("%", args, symbols)),
 
-        ("=", vec![T::gen("T"), T::gen("T")], T::Bool, &|args, symbols| binary_op("==", args, symbols)),
-        ("!=", vec![T::gen("T"), T::gen("T")], T::Bool, &|args, symbols| binary_op("!=", args, symbols)),
-        (">", vec![T::gen("T"), T::gen("T")], T::Bool, &|args, symbols| binary_op(">", args, symbols)),
-        ("<", vec![T::gen("T"), T::gen("T")], T::Bool, &|args, symbols| binary_op("<", args, symbols)),
-        (">=", vec![T::gen("T"), T::gen("T")], T::Bool, &|args, symbols| binary_op(">=", args, symbols)),
-        ("<=", vec![T::gen("T"), T::gen("T")], T::Bool, &|args, symbols| binary_op("<=", args, symbols)),
+        ("=", vec![NodeType::gen("T"), NodeType::gen("T")], NodeType::Bool, &|args, symbols| binary_op("==", args, symbols)),
+        ("!=", vec![NodeType::gen("T"), NodeType::gen("T")], NodeType::Bool, &|args, symbols| binary_op("!=", args, symbols)),
+        (">", vec![NodeType::gen("T"), NodeType::gen("T")], NodeType::Bool, &|args, symbols| binary_op(">", args, symbols)),
+        ("<", vec![NodeType::gen("T"), NodeType::gen("T")], NodeType::Bool, &|args, symbols| binary_op("<", args, symbols)),
+        (">=", vec![NodeType::gen("T"), NodeType::gen("T")], NodeType::Bool, &|args, symbols| binary_op(">=", args, symbols)),
+        ("<=", vec![NodeType::gen("T"), NodeType::gen("T")], NodeType::Bool, &|args, symbols| binary_op("<=", args, symbols)),
 
-        ("and", vec![T::Bool, T::Bool], T::Bool, &|args, symbols| binary_op("&&", args, symbols)),
-        ("or", vec![T::Bool, T::Bool], T::Bool, &|args, symbols| binary_op("||", args, symbols)),
-        ("not", vec![T::Bool], T::Bool, &|args, symbols| {
+        ("and", vec![NodeType::Bool, NodeType::Bool], NodeType::Bool, &|args, symbols| binary_op("&&", args, symbols)),
+        ("or", vec![NodeType::Bool, NodeType::Bool], NodeType::Bool, &|args, symbols| binary_op("||", args, symbols)),
+        ("not", vec![NodeType::Bool], NodeType::Bool, &|args, symbols| {
             format!("(!{})",
                 compile_expr(&args[0], symbols))
         }),
 
-        ("if", vec![T::Bool, T::gen("T"), T::gen("T")], T::gen("T"), &|args, symbols| {
+        ("if", vec![NodeType::Bool, NodeType::gen("T"), NodeType::gen("T")], NodeType::gen("T"), &|args, symbols| {
             format!("({} != 0 ? {} : {})",
                 compile_expr(&args[0], symbols),
                 compile_expr(&args[1], symbols),
