@@ -21,29 +21,30 @@ fn consume_fn(tokens: &mut TokensList, symbols: &mut SymbolTable) -> ASTNode {
 
     tokens.expect(TokenType::LeftParen);
 
-    let args = consume_fn_args(tokens);
-    let arg_types = args.iter()
-        .map(|arg| arg.symbol_type.clone())
-        .collect();
+    let (arg_symbols, arg_types) = consume_fn_args(tokens);
 
     tokens.expect(TokenType::RightParen);
 
-    // No guarantee this is actually what is returned by the function,
-    // currently, the programmer must be trusted
     let return_type = consume_fn_return(tokens);
 
     symbols.insert(Symbol::new_fn(&name_token.content, arg_types, return_type.clone()));
 
     let mut scoped_symbols = symbols.clone();
-    scoped_symbols.insert_vec(args.clone());
+    scoped_symbols.insert_vec(&arg_symbols);
 
-    let body = consume_block(tokens, &mut scoped_symbols);
+    let body = consume_block(tokens, symbols, &arg_symbols);
+    let body_last_type = symbols.get_node_type(body.last().unwrap());
 
-    ASTNode::Fn(name, args, return_type, body)
+    if body_last_type != return_type {
+        throw(&format!("Expected function \"{}\" to return \"{return_type}\", got \"{body_last_type}\" instead", name_token.content));
+    }
+
+    ASTNode::Fn(name, arg_symbols, return_type, body)
 }
 
-fn consume_fn_args(tokens: &mut TokensList) -> Vec<Symbol> {
+fn consume_fn_args(tokens: &mut TokensList) -> (Vec<Symbol>, Vec<NodeType>) {
     let mut args = Vec::new();
+    let mut arg_types = Vec::new();
 
     while let Some(token) = tokens.peek() {
         if token.token_type != TokenType::RightParen {
@@ -52,16 +53,21 @@ fn consume_fn_args(tokens: &mut TokensList) -> Vec<Symbol> {
             }
 
             let arg_name = tokens.expect(TokenType::Literal).content;
+
             tokens.expect(TokenType::Colon);
-            let arg_type = tokens.expect(TokenType::Literal).content;
-            args.push(Symbol::new_var(&arg_name, parse_type(arg_type)));
+
+            let arg_type = parse_type(tokens.expect(TokenType::Literal).content);
+            let symbol = Symbol::new_var(&arg_name, arg_type.clone());
+            
+            args.push(symbol);
+            arg_types.push(arg_type);
 
         } else {
             break;
         }
     }
 
-    args
+    (args, arg_types)
 }
 
 fn consume_fn_return(tokens: &mut TokensList) -> NodeType {
@@ -80,8 +86,11 @@ fn consume_fn_return(tokens: &mut TokensList) -> NodeType {
 
 // Statements surrounded by braces: { ... }
 // "symbols" should be a SymbolTable created for ONLY this block
-fn consume_block(tokens: &mut TokensList, symbols: &mut SymbolTable) -> Vec<ASTNode> {
+fn consume_block(tokens: &mut TokensList, symbols: &mut SymbolTable, env_symbols: &Vec<Symbol>) -> Vec<ASTNode> {
     tokens.expect(TokenType::LeftBrace);
+
+    let symbols = &mut symbols.clone();
+    symbols.insert_vec(env_symbols);
 
     let mut calls = Vec::new();
 
@@ -119,33 +128,6 @@ fn consume_let(tokens: &mut TokensList, symbols: &mut SymbolTable) -> ASTNode {
     ASTNode::Let(symbol, Box::new(value))
 }
 
-fn consume_call(name: String, tokens: &mut TokensList, symbols: &mut SymbolTable) -> ASTNode {
-    let left_paren = tokens.expect(TokenType::LeftParen);
-
-    if let Some(token) = tokens.peek() {
-        if token.token_type == TokenType::RightParen {
-            tokens.consume();
-            ASTNode::Call(name, Vec::new())
-        } else {
-            let mut args = vec![parse_node(tokens, symbols)];
-
-            while let Some(token) = tokens.peek() {
-                if token.token_type == TokenType::RightParen {
-                    tokens.next();
-                    break;
-                } else {
-                    tokens.expect(TokenType::Comma);
-                    args.push(parse_node(tokens, symbols));
-                }
-            }
-
-            ASTNode::Call(name, args)
-        }
-    } else {
-        throw_at("Expected closing paren", left_paren.line)
-    }
-}
-
 fn parse_node(tokens: &mut TokensList, symbols: &mut SymbolTable) -> ASTNode {
     let token = tokens.consume();
 
@@ -175,6 +157,33 @@ fn parse_node(tokens: &mut TokensList, symbols: &mut SymbolTable) -> ASTNode {
             }
         }
         _ => throw_at(&format!("Invalid argument: {}", token.content), token.line)
+    }
+}
+
+fn consume_call(name: String, tokens: &mut TokensList, symbols: &mut SymbolTable) -> ASTNode {
+    let left_paren = tokens.expect(TokenType::LeftParen);
+
+    if let Some(token) = tokens.peek() {
+        if token.token_type == TokenType::RightParen {
+            tokens.consume();
+            ASTNode::Call(name, Vec::new())
+        } else {
+            let mut args = vec![parse_node(tokens, symbols)];
+
+            while let Some(token) = tokens.peek() {
+                if token.token_type == TokenType::RightParen {
+                    tokens.next();
+                    break;
+                } else {
+                    tokens.expect(TokenType::Comma);
+                    args.push(parse_node(tokens, symbols));
+                }
+            }
+
+            ASTNode::Call(name, args)
+        }
+    } else {
+        throw_at("Expected closing paren", left_paren.line)
     }
 }
 

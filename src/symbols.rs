@@ -38,8 +38,8 @@ impl SymbolTable {
         self.table.push(s);
     }
 
-    pub fn insert_vec(&mut self, v: Vec<Symbol>) {
-        self.table.extend_from_slice(&v);
+    pub fn insert_vec(&mut self, v: &Vec<Symbol>) {
+        self.table.extend_from_slice(v);
     }
 
     pub fn check_types(&self, name: &String, args: &Vec<ASTNode>) -> bool {
