@@ -28,7 +28,7 @@ fn consume_fn(tokens: &mut TokensList, symbols: &mut SymbolTable) -> ASTNode {
 
     tokens.expect(TokenType::RightParen);
 
-    // No guaruntee this is actually what is returned by the function,
+    // No guarantee this is actually what is returned by the function,
     // currently, the programmer must be trusted
     let return_type = consume_fn_return(tokens);
 
