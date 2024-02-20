@@ -1,6 +1,6 @@
 fib(a: Int, b: Int, n: Int): Int {
     if(<=(a, n),
-        if(=(mod(a, 2), 0),
+        if(==(mod(a, 2), 0),
             +(a, fib(b, +(a, b), n)),
             fib(b, +(a, b), n)
         ),

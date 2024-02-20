@@ -122,7 +122,7 @@ fn get_inlines<'a>() -> Vec<InlineFn<'a>> {
         ("/", vec![NodeType::Int, NodeType::Int], NodeType::Int, &|args, symbols| binary_op("/", args, symbols)),
         ("mod", vec![NodeType::Int, NodeType::Int], NodeType::Int, &|args, symbols| binary_op("%", args, symbols)),
 
-        ("=", vec![NodeType::gen("T"), NodeType::gen("T")], NodeType::Bool, &|args, symbols| binary_op("==", args, symbols)),
+        ("==", vec![NodeType::gen("T"), NodeType::gen("T")], NodeType::Bool, &|args, symbols| binary_op("==", args, symbols)),
         ("!=", vec![NodeType::gen("T"), NodeType::gen("T")], NodeType::Bool, &|args, symbols| binary_op("!=", args, symbols)),
         (">", vec![NodeType::gen("T"), NodeType::gen("T")], NodeType::Bool, &|args, symbols| binary_op(">", args, symbols)),
         ("<", vec![NodeType::gen("T"), NodeType::gen("T")], NodeType::Bool, &|args, symbols| binary_op("<", args, symbols)),

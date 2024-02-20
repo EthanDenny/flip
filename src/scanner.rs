@@ -48,32 +48,7 @@ pub fn get_tokens(code: &str) -> Vec<Token> {
 
                 // Cool stuff
                 '0'..='9' => scan_int(&mut scanner, i),
-                _ => {
-                    if i + 3 <= scanner.code.len() && &scanner.code[i..i+3] == "let" {
-                        for _ in 0..2 { scanner.chars.next(); }
-                        Token::new(
-                            TokenType::Let,
-                            String::from(&scanner.code[i..i+3]),
-                            scanner.line
-                        )
-                    } else if i + 4 <= scanner.code.len() && &scanner.code[i..i+4] == "true" {
-                        for _ in 0..3 { scanner.chars.next(); }
-                        Token::new(
-                            TokenType::True,
-                            String::from(&scanner.code[i..i+4]),
-                            scanner.line
-                        )
-                    } else if i + 5 <= scanner.code.len() && &scanner.code[i..i+5] == "false" {
-                        for _ in 0..4 { scanner.chars.next(); }
-                        Token::new(
-                            TokenType::False,
-                            String::from(&scanner.code[i..i+5]),
-                            scanner.line
-                        )
-                    } else {
-                        scan_literal(&mut scanner, i)
-                    }
-                }
+                _ => scan_literal(&mut scanner, i)
             }
         );
     }
@@ -102,7 +77,16 @@ fn scan_literal<'a>(scanner: &mut Scanner<'a>, start: usize) -> Token {
         }
     }
 
-    Token::new(TokenType::Literal, String::from(&scanner.code[start..end]), scanner.line)
+    let content = &scanner.code[start..end];
+
+    let token_type = match content {
+        "=" => TokenType::Let,
+        "true" => TokenType::True,
+        "false" => TokenType::False,
+        _ => TokenType::Literal
+    };
+
+    Token::new(token_type, String::from(content), scanner.line)
 }
 
 fn scan_int<'a>(scanner: &mut Scanner<'a>, start: usize) -> Token {
