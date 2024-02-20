@@ -117,14 +117,12 @@ fn consume_block(tokens: &mut TokensList, symbols: &mut SymbolTable, env_symbols
 
 fn consume_let(tokens: &mut TokensList, symbols: &mut SymbolTable) -> ASTNode {
     tokens.expect(TokenType::LeftParen);
-    let name = tokens.expect(TokenType::Literal).content;    
-    tokens.expect(TokenType::Colon);
-    let symbol_type = parse_type(tokens.expect(TokenType::Literal).content);
+    let name = tokens.expect(TokenType::Literal).content;
     tokens.expect(TokenType::Comma);
     let value = parse_node(tokens, symbols);
     tokens.expect(TokenType::RightParen);
     
-    let symbol = Symbol::new_var(&name, symbol_type);
+    let symbol = Symbol::new_var(&name, symbols.get_node_type(&value));
     symbols.insert(symbol.clone());
     
     ASTNode::Let(symbol, Box::new(value))
