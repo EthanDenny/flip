@@ -28,7 +28,7 @@ impl ASTNode {
 pub enum NodeType {
     Int,
     Bool,
-    Fn,
+    Fn(Box<NodeType>),
     None,
     Generic(String)
 }
@@ -38,7 +38,7 @@ impl fmt::Display for NodeType {
         match self {
             NodeType::Int => write!(f, "Int"),
             NodeType::Bool => write!(f, "Bool"),
-            NodeType::Fn => write!(f, "Fn"),
+            NodeType::Fn(return_type) => write!(f, "Fn({return_type})"),
             NodeType::None => write!(f, "None"),
             NodeType::Generic(generic_name) => write!(f, "Generic({generic_name})"),
         }
@@ -48,5 +48,12 @@ impl fmt::Display for NodeType {
 impl<'a> NodeType {
     pub fn gen(name: &'a str) -> NodeType {
         NodeType::Generic(name.to_string())
+    }
+
+    pub fn unwrap_fn(&self) -> NodeType {
+        match &self {
+            NodeType::Fn(arg_type) => *arg_type.clone(),
+            _ => self.clone()
+        }
     }
 }

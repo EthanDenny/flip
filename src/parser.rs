@@ -15,9 +15,7 @@ pub fn build_ast(token_vec: Vec<Token>, symbols: &mut SymbolTable) -> Vec<ASTNod
 }
 
 fn consume_fn(tokens: &mut TokensList, symbols: &mut SymbolTable) -> ASTNode {
-    let mut name = String::from("fn_");
-    let name_token = tokens.expect(TokenType::Literal);
-    name.push_str(&name_token.content);
+    let name = tokens.expect(TokenType::Literal).content;
 
     tokens.expect(TokenType::LeftParen);
 
@@ -27,7 +25,7 @@ fn consume_fn(tokens: &mut TokensList, symbols: &mut SymbolTable) -> ASTNode {
 
     let return_type = consume_fn_return(tokens);
 
-    symbols.insert(Symbol::new_fn(&name_token.content, arg_types, return_type.clone()));
+    symbols.insert(Symbol::new_fn(&name, arg_types, NodeType::Fn(Box::new(return_type.clone()))));
 
     let mut scoped_symbols = symbols.clone();
     scoped_symbols.insert_vec(&arg_symbols);
@@ -35,9 +33,9 @@ fn consume_fn(tokens: &mut TokensList, symbols: &mut SymbolTable) -> ASTNode {
     let body = consume_block(tokens, symbols, &arg_symbols);
     let body_last_type = symbols.get_node_type(body.last().unwrap());
 
-    if body_last_type != return_type {
-        if !(name == "fn_main" && body_last_type == NodeType::Int) {
-            throw(&format!("Expected function \"{}\" to return \"{return_type}\", got \"{body_last_type}\" instead", name_token.content));
+    if body_last_type.unwrap_fn() != return_type.unwrap_fn() {
+        if !(name == "main" && body_last_type.unwrap_fn() == NodeType::Int) {
+            throw(&format!("Expected function \"{}\" to return \"{return_type}\", got \"{body_last_type}\" instead", name));
         }
     }
 
@@ -191,7 +189,8 @@ fn parse_type(type_name: String) -> NodeType {
     match type_name.as_ref() {
         "Int" => NodeType::Int,
         "Bool" => NodeType::Bool,
-        "Fn" => NodeType::Fn,
+        // TODO: "Fn" should be extended to allow more return types (and also arg types)
+        "Fn" => NodeType::Fn(Box::new(NodeType::Int)),
         "None" => NodeType::None,
         _ => NodeType::Generic(type_name)
     }

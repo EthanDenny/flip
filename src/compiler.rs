@@ -39,36 +39,59 @@ pub fn compile_expr<'a>(node: &ASTNode, symbols: &mut SymbolTable) -> Buffer {
 
     match node {
         ASTNode::Let(s, v) => {
-            buf.emit_instr(&format!("int {} = {};", s.name, compile_expr(v, symbols)));
+            buf.emit_instr(&format!("#undef {}", s.name));
+            buf.emit_instr(&format!("#define {} {}", s.name, compile_expr(v, symbols)));
         }
         ASTNode::Fn(name, args, _, body) => {
-            buf.emit(&format!("int {name}("));
+            buf.emit(&format!("// {name}\n\n"));
 
-            if args.len() > 0 {
-                let max_index = args.len() - 1;
-                
-                for i in 0..max_index {
-                    buf.emit(&format!("int {}, ", args[i].name));
+            if name == "main" {
+                buf.emit(&format!("long fn_main("));
+                emit_fn_args(&mut buf, args);
+                buf.emit(") {\n");
+                emit_fn_body(&mut buf, symbols, body);
+            } else {
+                // Forward declaration
+                buf.emit(&format!("fn fn_{name}("));
+                emit_fn_args(&mut buf, args);
+                buf.emit(");\n\n");
+
+                // "Real" function (called when evaluating)
+                buf.emit(&format!("long eval_{name}(char* args) {{\n"));
+
+                for arg in args {
+                    buf.emit_instr(&format!("long {} = get_arg(args, long);", arg.name));
                 }
 
-                buf.emit(&format!("int {}", args[max_index].name));
+                emit_fn_body(&mut buf, symbols, body);
+
+                // Lambda factory
+                buf.emit(&format!("fn fn_{name}("));
+                emit_fn_args(&mut buf, args);
+                buf.emit(") {\n");
+
+                if args.len() > 0 {
+                    buf.emit_instr("int size = 0;");
+                    for arg in args {
+                        buf.emit_instr(&format!("size += sizeof({});", arg.name));
+                    }
+
+                    buf.emit_instr("char* args = malloc(size);");
+                    for arg in args {
+                        buf.emit_instr(&format!("add_arg(args, {});", arg.name));
+                    }
+    
+                    buf.emit_instr(&format!("return lambda(eval_{name}, args - size);\n}}\n"));
+                } else {
+                    buf.emit_instr(&format!("return lambda(eval_{name}, NULL);\n}}\n"));
+                }
             }
-            
-            buf.emit(") {\n");
-
-            let max_index = body.len() - 1;
-
-            for i in 0..max_index {
-                buf.emit(&compile_expr(&body[i], symbols).get());
-            }
-
-            buf.emit_instr(&format!("return {};\n}}", compile_expr(&body[max_index], symbols).get()));
         }
         ASTNode::Call(name, args) => {
             if let Some(body) = get_inline_fn_body(name, args, symbols) {
                 buf.emit(&body(args.to_vec(), symbols));
             } else if symbols.check_types(name, args) {
-                let mut fn_call = format!("fn_{name}(");
+                let mut fn_call = format!("eval(fn_{name}(");
 
                 let max_index = args.len() - 1;
                 
@@ -76,7 +99,7 @@ pub fn compile_expr<'a>(node: &ASTNode, symbols: &mut SymbolTable) -> Buffer {
                     fn_call.push_str(&format!("{}, ", compile_expr(&args[i], symbols)));
                 }
                 
-                fn_call.push_str(&format!("{})", compile_expr(&args[max_index], symbols)));
+                fn_call.push_str(&format!("{}))", compile_expr(&args[max_index], symbols)));
 
                 buf.emit(&fn_call);
             } else {
@@ -91,6 +114,26 @@ pub fn compile_expr<'a>(node: &ASTNode, symbols: &mut SymbolTable) -> Buffer {
     }
 
     buf
+}
+
+fn emit_fn_args(buf: &mut Buffer, args: &Vec<Symbol>) {
+    if args.len() > 0 {
+        let max_index = args.len() - 1;
+        
+        for i in 0..max_index {
+            buf.emit(&format!("long {}, ", args[i].name));
+        }
+
+        buf.emit(&format!("long {}", args[max_index].name));
+    }
+}
+
+fn emit_fn_body(buf: &mut Buffer, symbols: &mut SymbolTable, body: &Vec<ASTNode>) {
+    let max_index = body.len() - 1;
+    for i in 0..max_index {
+        buf.emit(&compile_expr(&body[i], symbols).get());
+    }
+    buf.emit_instr(&format!("return {};\n}}\n", compile_expr(&body[max_index], symbols).get()));
 }
 
 fn get_inline_fn_body<'a>(name: &String, args: &Vec<ASTNode>, symbols: &mut SymbolTable) -> Option<InlineFnBody<'a>> {

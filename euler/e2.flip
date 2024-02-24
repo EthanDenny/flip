@@ -1,8 +1,9 @@
 fib(a: Int, b: Int, n: Int): Int {
+    =(next_fib, fib(b, +(a, b), n))
     if(<=(a, n),
         if(==(mod(a, 2), 0),
-            +(a, fib(b, +(a, b), n)),
-            fib(b, +(a, b), n)
+            +(a, next_fib),
+            next_fib
         ),
         0
     )

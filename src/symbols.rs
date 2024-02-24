@@ -57,7 +57,7 @@ impl SymbolTable {
 
     pub fn get_return_type(&self, name: &String, args: &Vec<ASTNode>) -> NodeType {
         if let Some(s) = self.find_fn(name, args) {
-            return s.symbol_type.clone();
+            s.symbol_type.clone()
         } else {
             panic!("Could not find symbol {name}");
         }
@@ -83,19 +83,23 @@ impl SymbolTable {
         let mut generics_map = HashMap::new();
     
         for (arg, goal_type) in args.into_iter().zip(goal_types.into_iter()) {
-            let arg_type = self.get_node_type(arg);
-    
-            if let NodeType::Generic(generic_name) = goal_type {
-                if let Some(type_from_generic) = generics_map.get(&generic_name) {
-                    if &arg_type != type_from_generic {
-                        
+            let arg_type = self.get_node_type(arg).unwrap_fn();
+
+            match goal_type {
+                NodeType::Generic(generic_name) => {
+                    if let Some(type_from_generic) = generics_map.get(&generic_name) {
+                        if arg_type != *type_from_generic {
+                            return false;
+                        }
+                    } else {
+                        generics_map.insert(generic_name, arg_type);
+                    }
+                }
+                _ => {
+                    if arg_type != *goal_type {
                         return false;
                     }
-                } else {
-                    generics_map.insert(generic_name, arg_type);
                 }
-            } else if arg_type != *goal_type {
-                return false;
             }
         }
     
@@ -104,7 +108,7 @@ impl SymbolTable {
 
     pub fn get_node_type<'a>(&self, node: &ASTNode) -> NodeType {
         match node {
-            ASTNode::Fn(_, _, _, _) => NodeType::Fn,
+            ASTNode::Fn(_, _, return_type, _) => NodeType::Fn(Box::new(return_type.clone())),
             ASTNode::Let(_, _) => throw("Cannot pass a let-binding as an argument"),
             ASTNode::Call(name, args) => {
                 let return_type = self.get_return_type(name, args);
