@@ -14,7 +14,7 @@ Although it's still in a pre-alpha stage (and may never progress past that point
 
 This prints "43110":
 
-```
+```groovy
 main() {
     43110
 }
@@ -22,7 +22,7 @@ main() {
 
 This does the same:
 
-```
+```groovy
 hello(): Int {
     43110
 }
@@ -34,7 +34,7 @@ main() {
 
 Now, a more complex example, which sums the numbers from 1 to 100:
 
-```
+```groovy
 sum(nums: [Int]): Int {
     if(is_null(nums),
         0,
