@@ -29,11 +29,6 @@ typedef list_node* list;
 
 // Lambdas
 
-union {
-    long as_i;
-    list as_l;
-} typedef return_t;
-
 struct {
     char evaluated;
     union {
@@ -41,7 +36,7 @@ struct {
             void* func;
             char* args;
         };
-        return_t return_v;
+        long return_v;
     };
 } typedef lambda_t;
 
@@ -63,10 +58,10 @@ lambda_t* lambda(void* fn, void* args) {
     args += sizeof(arg);\
 }
 
-return_t eval(lambda_t* x) {
+long eval(lambda_t* x) {
     if (!x->evaluated) {
         void* arg_ptr = x->args;
-        x->return_v = ((return_t (*)(void*))x->func)(x->args);
+        x->return_v = ((long (*)(void*))x->func)(x->args);
         x->evaluated = 1;
         free(arg_ptr);
     }

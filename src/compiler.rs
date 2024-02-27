@@ -99,7 +99,13 @@ pub fn compile_expr<'a>(node: &ASTNode, symbols: &mut SymbolTable) -> Buffer {
             if let Some(body) = get_inline_fn_body(name, args, symbols) {
                 buf.emit(&body(args.to_vec(), symbols));
             } else if symbols.check_types(name, args) {
-                let mut fn_call = format!("eval(fn_{name}(");
+                let mut fn_call;
+
+                if let NodeType::List(_) = symbols.get_return_type(name, args).unwrap_fn() {
+                    fn_call = format!("(list) eval(fn_{name}(");
+                } else {
+                    fn_call = format!("eval(fn_{name}(");
+                }
 
                 let max_index = args.len() - 1;
                 
@@ -107,11 +113,7 @@ pub fn compile_expr<'a>(node: &ASTNode, symbols: &mut SymbolTable) -> Buffer {
                     fn_call.push_str(&format!("{}, ", compile_expr(&args[i], symbols)));
                 }
 
-                if let NodeType::List(_) = symbols.get_return_type(name, args).unwrap_fn() {
-                    fn_call.push_str(&format!("{})).as_l", compile_expr(&args[max_index], symbols)));
-                } else {
-                    fn_call.push_str(&format!("{})).as_i", compile_expr(&args[max_index], symbols)));
-                }
+                fn_call.push_str(&format!("{}))", compile_expr(&args[max_index], symbols)));
 
                 buf.emit(&fn_call);
             } else {
