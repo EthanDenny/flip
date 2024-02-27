@@ -19,10 +19,10 @@ pub fn main() {
         let code = fs::read_to_string(&path).expect("Could not read file");
         
         if let Err(e) = compile(code) {
-            println!("{e}");
+            eprintln!("{e}");
         };
     } else {
-        eprintln!("Usage: [path]");
+        println!("Usage: [path]");
     }
 }
 
