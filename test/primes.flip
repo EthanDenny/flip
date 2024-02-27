@@ -19,7 +19,7 @@ search_primes(nums: [Int], start: Int, count: Int): [Int] {
     if(<(len(nums), count),
         if(has_divisor_in(start, nums),
             search_primes(nums, +(start, 1), count),
-            search_primes(++(nums, start), +(start, 1), count)
+            search_primes(push(nums, start), +(start, 1), count)
         ),
         nums
     )

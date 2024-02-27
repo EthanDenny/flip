@@ -186,6 +186,7 @@ fn get_inlines<'a>() -> Vec<InlineFn<'a>> {
         ("*", vec![NodeType::Int, NodeType::Int], NodeType::Int, &|args, symbols| binary_op("*", args, symbols)),
         ("/", vec![NodeType::Int, NodeType::Int], NodeType::Int, &|args, symbols| binary_op("/", args, symbols)),
         ("mod", vec![NodeType::Int, NodeType::Int], NodeType::Int, &|args, symbols| binary_op("%", args, symbols)),
+        ("-", vec![NodeType::Int], NodeType::Int, &|args, symbols| unary_op("-", args, symbols)),
 
         ("==", vec![NodeType::gen("T"), NodeType::gen("T")], NodeType::Bool, &|args, symbols| binary_op("==", args, symbols)),
         ("!=", vec![NodeType::gen("T"), NodeType::gen("T")], NodeType::Bool, &|args, symbols| binary_op("!=", args, symbols)),
@@ -196,10 +197,7 @@ fn get_inlines<'a>() -> Vec<InlineFn<'a>> {
 
         ("and", vec![NodeType::Bool, NodeType::Bool], NodeType::Bool, &|args, symbols| binary_op("&&", args, symbols)),
         ("or", vec![NodeType::Bool, NodeType::Bool], NodeType::Bool, &|args, symbols| binary_op("||", args, symbols)),
-        ("not", vec![NodeType::Bool], NodeType::Bool, &|args, symbols| {
-            format!("(!{})",
-                compile_expr(&args[0], symbols))
-        }),
+        ("not", vec![NodeType::Bool], NodeType::Bool, &|args, symbols| unary_op("!", args, symbols)),
 
         ("if", vec![NodeType::Bool, NodeType::gen("T"), NodeType::gen("T")], NodeType::gen("T"), &|args, symbols| {
             format!("({} ? {} : {})",
@@ -224,7 +222,7 @@ fn get_inlines<'a>() -> Vec<InlineFn<'a>> {
                 compile_expr(&args[0], symbols))
         }),
         // List concatenation
-        ("++", vec![NodeType::List(Box::new(NodeType::gen("T"))), NodeType::gen("T")], NodeType::List(Box::new(NodeType::gen("T"))), &|args, symbols| {
+        ("push", vec![NodeType::List(Box::new(NodeType::gen("T"))), NodeType::gen("T")], NodeType::List(Box::new(NodeType::gen("T"))), &|args, symbols| {
             format!("push({}, {})",
                 compile_expr(&args[0], symbols),
                 compile_expr(&args[1], symbols))
@@ -234,6 +232,11 @@ fn get_inlines<'a>() -> Vec<InlineFn<'a>> {
                 compile_expr(&args[0], symbols))
         })
     ]
+}
+
+fn unary_op<'a>(op: &'a str, args: Vec<ASTNode>, symbols: &mut SymbolTable) -> String {
+    format!("({op}({}))",
+        compile_expr(&args[0], symbols))
 }
 
 fn binary_op<'a>(op: &'a str, args: Vec<ASTNode>, symbols: &mut SymbolTable) -> String {
