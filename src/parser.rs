@@ -192,6 +192,12 @@ fn parse_type(type_name: String) -> NodeType {
         // TODO: "Fn" should be extended to allow more return types (and also arg types)
         "Fn" => NodeType::Fn(Box::new(NodeType::Int)),
         "None" => NodeType::None,
-        _ => NodeType::Generic(type_name)
+        _ => {
+            if type_name.chars().nth(0).unwrap() == '[' {
+                NodeType::List(Box::new(parse_type((&type_name[1..type_name.len()-1]).to_string())))
+            } else {
+                NodeType::Generic(type_name)
+            }
+        }
     }
 }

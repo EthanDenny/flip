@@ -80,30 +80,44 @@ impl SymbolTable {
             return false;
         }
     
-        let mut generics_map = HashMap::new();
+        let mut generics = HashMap::new();
     
         for (arg, goal_type) in args.into_iter().zip(goal_types.into_iter()) {
-            let arg_type = self.get_node_type(arg).unwrap_fn();
-
-            match goal_type {
-                NodeType::Generic(generic_name) => {
-                    if let Some(type_from_generic) = generics_map.get(&generic_name) {
-                        if arg_type != *type_from_generic {
-                            return false;
-                        }
-                    } else {
-                        generics_map.insert(generic_name, arg_type);
-                    }
-                }
-                _ => {
-                    if arg_type != *goal_type {
-                        return false;
-                    }
-                }
+            let arg_type = self.get_node_type(arg);
+            if !Self::compare(&arg_type, goal_type, &mut generics) {
+                return false;
             }
         }
     
         true
+    }
+
+    fn compare<'a>(a: &'a NodeType, b: &'a NodeType, generics: &mut HashMap<String, NodeType>) -> bool {
+        match (a, b) {
+            (NodeType::Int, NodeType::Int) => true,
+            (NodeType::Bool, NodeType::Bool) => true,
+            (NodeType::None, NodeType::None) => true,
+            (NodeType::Generic(a), NodeType::Generic(b)) => a == b,
+            (NodeType::Generic(g), t) |
+            (t, NodeType::Generic(g)) => {
+                if let Some(type_from_generic) = generics.get(g) {
+                    let type_from_generic = type_from_generic.unwrap_fn();
+                    if !Self::compare(t, &type_from_generic, generics) {
+                        return false;
+                    }
+                } else {
+                    generics.insert(g.to_string(), t.clone());
+                }
+
+                true
+            }
+            (NodeType::List(a), NodeType::List(b)) => Self::compare(a, b, generics),
+            (NodeType::Fn(_), _) |
+            (_, NodeType::Fn(_)) => {
+                Self::compare(&a.unwrap_fn(), &b.unwrap_fn(), generics)
+            }
+            _ => false
+        }
     }
 
     pub fn get_node_type<'a>(&self, node: &ASTNode) -> NodeType {
@@ -112,20 +126,43 @@ impl SymbolTable {
             ASTNode::Let(_, _) => throw("Cannot pass a let-binding as an argument"),
             ASTNode::Call(name, args) => {
                 let return_type = self.get_return_type(name, args);
+                let arg_types = self.get_arg_types(name, args);
+                let mut generics = HashMap::new();
 
-                if let NodeType::Generic(generic_name) = &return_type {
-                    let arg_types = self.get_arg_types(name, args);
-            
-                    for (arg_type, arg) in arg_types.iter().zip(args.iter()) {
-                        if &return_type == arg_type {
-                            return self.get_node_type(arg);
+                for (arg_type, arg) in arg_types.iter().zip(args.iter()) {
+                    let mut left_type = arg_type.unwrap_fn();
+                    let mut right_type = self.get_node_type(arg).unwrap_fn();
+
+                    loop {
+                        match (left_type, &right_type) {
+                            (NodeType::List(a), NodeType::List(b)) => {
+                                left_type = *a.clone();
+                                right_type = *b.clone();
+                            }
+                            (NodeType::Generic(g), _) => {
+                                if !generics.contains_key(&g) {
+                                    generics.insert(g, right_type);
+                                }
+                                break;
+                            }
+                            _ => break
                         }
                     }
-            
-                    throw(&format!("Could not resolve generic {generic_name}"));
-                } else {
-                    return_type
                 }
+
+                fn wrap(return_type: NodeType, generics: HashMap<String, NodeType>) -> NodeType {
+                    match return_type {
+                        NodeType::List(inner) => {
+                            NodeType::List(Box::new(wrap(*inner, generics)))
+                        }
+                        NodeType::Generic(g) => {
+                            generics.get(&g).unwrap().clone()
+                        }
+                        _ => return_type
+                    }
+                }
+
+                wrap(return_type, generics)
             },
             ASTNode::Var(s) => s.symbol_type.clone(),
             ASTNode::Int(_) => NodeType::Int,

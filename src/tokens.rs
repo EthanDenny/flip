@@ -8,8 +8,6 @@ use crate::error::{throw, throw_at};
 pub enum TokenType {
     LeftParen,
     RightParen,
-    LeftBracket,
-    RightBracket,
     LeftBrace,
     RightBrace,
 
@@ -29,8 +27,6 @@ impl fmt::Display for TokenType {
         match self {
             TokenType::LeftParen => write!(f, "("),
             TokenType::RightParen => write!(f, ")"),
-            TokenType::LeftBracket => write!(f, "["),
-            TokenType::RightBracket => write!(f, "]"),
             TokenType::LeftBrace => write!(f, "{{"),
             TokenType::RightBrace => write!(f, "}}"),
 

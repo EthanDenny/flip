@@ -1,0 +1,35 @@
+sum(nums: [Int]): Int {
+    if(is_null(nums),
+        0,
+        +(head(nums), sum(tail(nums)))
+    )
+}
+
+has_divisor_in(n: Int, nums: [Int]): Bool {
+    if(==(len(nums), 0),
+        false,
+        if(==(mod(n, head(nums)), 0),
+            true,
+            has_divisor_in(n, tail(nums))
+        )
+    )
+}
+
+search_primes(nums: [Int], start: Int, count: Int): [Int] {
+    if(<(len(nums), count),
+        if(has_divisor_in(start, nums),
+            search_primes(nums, +(start, 1), count),
+            search_primes(++(nums, start), +(start, 1), count)
+        ),
+        nums
+    )
+}
+
+primes(count: Int): [Int] {
+    =(start, 2)
+    search_primes([Int](), start, count)
+}
+
+main() {
+    sum(primes(200))
+}

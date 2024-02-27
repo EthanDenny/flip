@@ -34,12 +34,27 @@ fn compile(code: String) -> std::io::Result<()>  {
 
     let mut file = File::create("build/out.c")?;
 
-    file.write_all(b"#include \"lambda.h\"\n\n")?;
+    file.write_all(format!("{INCLUDES}\n\n").as_bytes())?;
 
     for branch in ast {
         let buf = compiler::compile_expr(&branch, &mut symbols);
         file.write_all(buf.get().as_bytes())?;
     }
 
+    file.write_all(C_MAIN.as_bytes())?;
+
     Ok(())
 }
+
+const INCLUDES: &str = "\
+#include <stdio.h>
+#include \"flip.h\"";
+
+const C_MAIN: &str = "\
+// C main
+
+int main() {
+    printf(\"%ld\\n\", fn_main());
+    return 0;
+}
+";

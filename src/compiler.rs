@@ -42,7 +42,7 @@ pub fn compile_expr<'a>(node: &ASTNode, symbols: &mut SymbolTable) -> Buffer {
             buf.emit_instr(&format!("#undef {}", s.name));
             buf.emit_instr(&format!("#define {} {}", s.name, compile_expr(v, symbols)));
         }
-        ASTNode::Fn(name, args, _, body) => {
+        ASTNode::Fn(name, args, return_type, body) => {
             buf.emit(&format!("// {name}\n\n"));
 
             if name == "main" {
@@ -57,10 +57,18 @@ pub fn compile_expr<'a>(node: &ASTNode, symbols: &mut SymbolTable) -> Buffer {
                 buf.emit(");\n\n");
 
                 // "Real" function (called when evaluating)
-                buf.emit(&format!("long eval_{name}(char* args) {{\n"));
+                if let NodeType::List(_) = return_type.unwrap_fn() {
+                    buf.emit(&format!("list eval_{name}(char* args) {{\n"));
+                } else {
+                    buf.emit(&format!("long eval_{name}(char* args) {{\n"));
+                }
 
                 for arg in args {
-                    buf.emit_instr(&format!("long {} = get_arg(args, long);", arg.name));
+                    if let NodeType::List(_) = arg.symbol_type.unwrap_fn() {
+                        buf.emit_instr(&format!("list {} = get_arg(args, list);", arg.name));
+                    } else {
+                        buf.emit_instr(&format!("long {} = get_arg(args, long);", arg.name));
+                    }
                 }
 
                 emit_fn_body(&mut buf, symbols, body);
@@ -98,8 +106,12 @@ pub fn compile_expr<'a>(node: &ASTNode, symbols: &mut SymbolTable) -> Buffer {
                 for i in 0..max_index {
                     fn_call.push_str(&format!("{}, ", compile_expr(&args[i], symbols)));
                 }
-                
-                fn_call.push_str(&format!("{}))", compile_expr(&args[max_index], symbols)));
+
+                if let NodeType::List(_) = symbols.get_return_type(name, args).unwrap_fn() {
+                    fn_call.push_str(&format!("{})).as_l", compile_expr(&args[max_index], symbols)));
+                } else {
+                    fn_call.push_str(&format!("{})).as_i", compile_expr(&args[max_index], symbols)));
+                }
 
                 buf.emit(&fn_call);
             } else {
@@ -121,10 +133,18 @@ fn emit_fn_args(buf: &mut Buffer, args: &Vec<Symbol>) {
         let max_index = args.len() - 1;
         
         for i in 0..max_index {
-            buf.emit(&format!("long {}, ", args[i].name));
+            if let NodeType::List(_) = args[i].symbol_type.unwrap_fn() {
+                buf.emit(&format!("list {}, ", args[i].name));
+            } else {
+                buf.emit(&format!("long {}, ", args[i].name));
+            }
         }
 
-        buf.emit(&format!("long {}", args[max_index].name));
+        if let NodeType::List(_) = args[max_index].symbol_type.unwrap_fn() {
+            buf.emit(&format!("list {}", args[max_index].name));
+        } else {
+            buf.emit(&format!("long {}", args[max_index].name));
+        }
     }
 }
 
@@ -180,10 +200,36 @@ fn get_inlines<'a>() -> Vec<InlineFn<'a>> {
         }),
 
         ("if", vec![NodeType::Bool, NodeType::gen("T"), NodeType::gen("T")], NodeType::gen("T"), &|args, symbols| {
-            format!("({} != 0 ? {} : {})",
+            format!("({} ? {} : {})",
                 compile_expr(&args[0], symbols),
                 compile_expr(&args[1], symbols),
                 compile_expr(&args[2], symbols))
+        }),
+
+        ("[Int]", vec![], NodeType::List(Box::new(NodeType::Int)), &|_, _| {
+            format!("((list) NULL)")
+        }),
+        ("len", vec![NodeType::List(Box::new(NodeType::gen("T")))], NodeType::Int, &|args, symbols| {
+            format!("(len({}))",
+                compile_expr(&args[0], symbols))
+        }),
+        ("head", vec![NodeType::List(Box::new(NodeType::gen("T")))], NodeType::gen("T"), &|args, symbols| {
+            format!("(({})->head)",
+                compile_expr(&args[0], symbols))
+        }),
+        ("tail", vec![NodeType::List(Box::new(NodeType::gen("T")))], NodeType::List(Box::new(NodeType::gen("T"))), &|args, symbols| {
+            format!("(({})->tail)",
+                compile_expr(&args[0], symbols))
+        }),
+        // List concatenation
+        ("++", vec![NodeType::List(Box::new(NodeType::gen("T"))), NodeType::gen("T")], NodeType::List(Box::new(NodeType::gen("T"))), &|args, symbols| {
+            format!("push({}, {})",
+                compile_expr(&args[0], symbols),
+                compile_expr(&args[1], symbols))
+        }),
+        ("is_null", vec![NodeType::List(Box::new(NodeType::gen("T")))], NodeType::Bool, &|args, symbols| {
+            format!("({} == NULL)",
+                compile_expr(&args[0], symbols))
         })
     ]
 }

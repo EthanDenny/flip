@@ -29,6 +29,7 @@ pub enum NodeType {
     Int,
     Bool,
     Fn(Box<NodeType>),
+    List(Box<NodeType>),
     None,
     Generic(String)
 }
@@ -39,6 +40,7 @@ impl fmt::Display for NodeType {
             NodeType::Int => write!(f, "Int"),
             NodeType::Bool => write!(f, "Bool"),
             NodeType::Fn(return_type) => write!(f, "Fn({return_type})"),
+            NodeType::List(inner) => write!(f, "List({inner})"),
             NodeType::None => write!(f, "None"),
             NodeType::Generic(generic_name) => write!(f, "Generic({generic_name})"),
         }
@@ -52,7 +54,7 @@ impl<'a> NodeType {
 
     pub fn unwrap_fn(&self) -> NodeType {
         match &self {
-            NodeType::Fn(arg_type) => *arg_type.clone(),
+            NodeType::Fn(arg_type) => (*arg_type.clone()).unwrap_fn(),
             _ => self.clone()
         }
     }

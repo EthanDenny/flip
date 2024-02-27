@@ -29,8 +29,6 @@ pub fn get_tokens(code: &str) -> Vec<Token> {
                 // Single-character tokens
                 '(' => one_char_token(TokenType::LeftParen, &mut scanner, i),
                 ')' => one_char_token(TokenType::RightParen, &mut scanner, i),
-                '[' => one_char_token(TokenType::LeftBracket, &mut scanner, i),
-                ']' => one_char_token(TokenType::RightBracket, &mut scanner, i),
                 '{' => one_char_token(TokenType::LeftBrace, &mut scanner, i),
                 '}' => one_char_token(TokenType::RightBrace, &mut scanner, i),
                 ',' => one_char_token(TokenType::Comma, &mut scanner, i),
@@ -65,7 +63,7 @@ fn scan_literal<'a>(scanner: &mut Scanner<'a>, start: usize) -> Token {
 
     while let Some(&(j, c)) = scanner.chars.peek() {
         match c {
-            '(' | ')' | '[' | ']' | '{' | '}' |
+            '(' | ')' | '{' | '}' |
             '.' | ':' | '-' |
             '0'..='9' | '\'' | '\"' |
             ',' | ' ' |
