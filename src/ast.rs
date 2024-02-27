@@ -54,7 +54,7 @@ impl<'a> NodeType {
 
     pub fn unwrap_fn(&self) -> NodeType {
         match &self {
-            NodeType::Fn(arg_type) => (*arg_type.clone()).unwrap_fn(),
+            NodeType::Fn(arg_type) => arg_type.unwrap_fn(),
             _ => self.clone()
         }
     }
