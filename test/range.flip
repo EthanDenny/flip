@@ -1,0 +1,17 @@
+sum(nums: [Int]): Int {
+    if(is_null(nums),
+        0,
+        +(head(nums), sum(tail(nums)))
+    )
+}
+
+range(nums: [Int], start: Int, end: Int): [Int] {
+    if(<=(start, end),
+        range(push(nums, start), +(start, 1), end),
+        nums
+    )
+}
+
+main() {
+    sum(range([Int](), 1, 100))
+}

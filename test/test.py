@@ -11,7 +11,8 @@ if __name__ == "__main__":
     tests = [
         ("test/e1.flip", "233168"),
         ("test/e2.flip", "4613732"),
-        ("test/primes.flip", "111587")
+        ("test/primes.flip", "111587"),
+        ("test/range.flip", "5050")
     ]
 
     max_length = max(map(lambda x: len(x[0]), tests))
