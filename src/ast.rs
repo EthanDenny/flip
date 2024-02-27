@@ -8,7 +8,7 @@ pub enum ASTNode {
     Call(String, Vec<ASTNode>),
     Let(Symbol, Box<ASTNode>),
     Var(Symbol),
-    Int(i32),
+    Int(i64),
     Bool(bool),
 }
 

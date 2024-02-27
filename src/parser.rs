@@ -130,7 +130,7 @@ fn parse_node(tokens: &mut TokensList, symbols: &mut SymbolTable) -> ASTNode {
     let token = tokens.consume();
 
     match token.token_type {
-        TokenType::Integer => ASTNode::Int(token.content.parse::<i32>().unwrap()),
+        TokenType::Integer => ASTNode::Int(token.content.parse::<i64>().unwrap()),
         TokenType::True => ASTNode::Bool(true),
         TokenType::False => ASTNode::Bool(false),
         TokenType::Literal => {
