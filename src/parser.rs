@@ -1,6 +1,6 @@
+use crate::ast::{ASTNode, NodeType};
 use crate::error::{throw, throw_at};
 use crate::symbols::{Symbol, SymbolTable};
-use crate::ast::{ASTNode, NodeType};
 use crate::tokens::{Token, TokenType, TokensList};
 
 pub fn build_ast(token_vec: Vec<Token>, symbols: &mut SymbolTable) -> Vec<ASTNode> {
@@ -25,7 +25,11 @@ fn consume_fn(tokens: &mut TokensList, symbols: &mut SymbolTable) -> ASTNode {
 
     let return_type = consume_fn_return(tokens);
 
-    symbols.insert(Symbol::new_fn(&name, arg_types, NodeType::Fn(Box::new(return_type.clone()))));
+    symbols.insert(Symbol::new_fn(
+        &name,
+        arg_types,
+        NodeType::Fn(Box::new(return_type.clone())),
+    ));
 
     let mut scoped_symbols = symbols.clone();
     scoped_symbols.insert_vec(&arg_symbols);
@@ -58,10 +62,9 @@ fn consume_fn_args(tokens: &mut TokensList) -> (Vec<Symbol>, Vec<NodeType>) {
 
             let arg_type = parse_type(tokens.expect(TokenType::Literal).content);
             let symbol = Symbol::new_var(&arg_name, arg_type.clone());
-            
+
             args.push(symbol);
             arg_types.push(arg_type);
-
         } else {
             break;
         }
@@ -86,7 +89,11 @@ fn consume_fn_return(tokens: &mut TokensList) -> NodeType {
 
 // Statements surrounded by braces: { ... }
 // "symbols" should be a SymbolTable created for ONLY this block
-fn consume_block(tokens: &mut TokensList, symbols: &mut SymbolTable, env_symbols: &Vec<Symbol>) -> Vec<ASTNode> {
+fn consume_block(
+    tokens: &mut TokensList,
+    symbols: &mut SymbolTable,
+    env_symbols: &Vec<Symbol>,
+) -> Vec<ASTNode> {
     tokens.expect(TokenType::LeftBrace);
 
     let symbols = &mut symbols.clone();
@@ -119,10 +126,10 @@ fn consume_let(tokens: &mut TokensList, symbols: &mut SymbolTable) -> ASTNode {
     tokens.expect(TokenType::Comma);
     let value = parse_node(tokens, symbols);
     tokens.expect(TokenType::RightParen);
-    
+
     let symbol = Symbol::new_var(&name, symbols.get_node_type(&value));
     symbols.insert(symbol.clone());
-    
+
     ASTNode::Let(symbol, Box::new(value))
 }
 
@@ -149,12 +156,11 @@ fn parse_node(tokens: &mut TokensList, symbols: &mut SymbolTable) -> ASTNode {
                 } else {
                     ASTNode::Var(Symbol::new_var(&token.content, s.symbol_type))
                 }
-            }
-            else {
+            } else {
                 throw_at(&format!("Unknown symbol {}", token.content), token.line);
             }
         }
-        _ => throw_at(&format!("Invalid argument: {}", token.content), token.line)
+        _ => throw_at(&format!("Invalid argument: {}", token.content), token.line),
     }
 }
 
@@ -194,7 +200,9 @@ fn parse_type(type_name: String) -> NodeType {
         "None" => NodeType::None,
         _ => {
             if type_name.chars().nth(0).unwrap() == '[' {
-                NodeType::List(Box::new(parse_type((&type_name[1..type_name.len()-1]).to_string())))
+                NodeType::List(Box::new(parse_type(
+                    (&type_name[1..type_name.len() - 1]).to_string(),
+                )))
             } else {
                 NodeType::Generic(type_name)
             }

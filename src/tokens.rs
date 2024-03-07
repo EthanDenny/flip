@@ -15,7 +15,7 @@ pub enum TokenType {
     Dot,
     Colon,
     Let,
-    
+
     True,
     False,
     Integer,
@@ -38,7 +38,7 @@ impl fmt::Display for TokenType {
             TokenType::True => write!(f, "True"),
             TokenType::False => write!(f, "False"),
             TokenType::Integer => write!(f, "Integer"),
-            TokenType::Literal => write!(f, "Literal")
+            TokenType::Literal => write!(f, "Literal"),
         }
     }
 }
@@ -52,17 +52,23 @@ pub struct Token {
 
 impl Token {
     pub fn new(token_type: TokenType, content: String, line: usize) -> Token {
-        Token { token_type,content, line }
+        Token {
+            token_type,
+            content,
+            line,
+        }
     }
 }
 
 pub struct TokensList {
-    tokens: Peekable<IntoIter<Token>>
+    tokens: Peekable<IntoIter<Token>>,
 }
 
 impl TokensList {
     pub fn from(tokens: Vec<Token>) -> TokensList {
-        TokensList { tokens: tokens.into_iter().peekable() }
+        TokensList {
+            tokens: tokens.into_iter().peekable(),
+        }
     }
 
     pub fn peek(&mut self) -> Option<&Token> {
@@ -87,7 +93,10 @@ impl TokensList {
         if token.token_type == expected {
             return token;
         } else {
-            throw_at(&format!("Unexpected token {}, expected {expected:?}", token.content), token.line);
+            throw_at(
+                &format!("Unexpected token {}, expected {expected:?}", token.content),
+                token.line,
+            );
         }
     }
 }

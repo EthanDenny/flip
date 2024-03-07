@@ -12,6 +12,7 @@ range(nums: [Int], start: Int, end: Int): [Int] {
     )
 }
 
+// Compute sum of integers from 1 to 100
 main() {
     sum(range([Int](), 1, 100))
 }
